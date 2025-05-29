@@ -193,19 +193,29 @@ func (e *PotokenExtractor) extractToken(request *network.EventRequestWillBeSent)
 		return nil
 	}
 
-	potoken, ok := postDataJSON["serviceIntegrityDimensions"].(map[string]interface{})["poToken"].(string)
+	// First, get serviceIntegrityDimensions
+	serviceDims, ok := postDataJSON["serviceIntegrityDimensions"].(map[string]interface{})
 	if !ok {
-		log.Println("Failed to extract potoken")
+		log.Println("Failed to extract serviceIntegrityDimensions")
+		return nil
+	}
+
+	// Then get poToken
+	potoken, ok := serviceDims["poToken"].(string)
+	if !ok {
+		log.Println("Failed to extract poToken from serviceIntegrityDimensions")
 		return nil
 	}
 
 	if len(potoken) < 100 {
 		fmt.Println("Warnning: likely not a valid po token")
+		return nil
 	}
 
 	potoken, err = url.QueryUnescape(potoken)
 	if err != nil {
 		fmt.Println("Error decoding potoken:", err)
+		return nil
 	}
 
 	tokenInfo := &TokenInfo{
