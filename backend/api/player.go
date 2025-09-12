@@ -40,7 +40,7 @@ func PlayerEndpointHandler(c echo.Context) error {
 	} else {
 		// no auth clients - tv / ios
 		potRequired = true
-		responseBytes, err = callPlayerAPI(api.ANDROID_VR, videoId, playlistId, authObj)
+		responseBytes, err = callPlayerAPI(api.TV_SIMPLY, videoId, playlistId, authObj)
 	}
 
 	if err != nil {

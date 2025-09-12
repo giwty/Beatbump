@@ -29,11 +29,6 @@ const adapters = {
 };
 
 const adapter = adapters[ENV_ADAPTER];
-
-const SASS_PATH = `${path.dirname(
-    fileURLToPath(import.meta.url),
-)}/src/global/redesign/base/_variables.scss`;
-
 /** @type {import('@sveltejs/kit').Config} */
 const config = {
     preprocess: sveltePreprocess({
@@ -42,8 +37,7 @@ const config = {
         scss: {
             includePaths: ["./src/"],
 
-            prependData: `@use "${SASS_PATH}" as *;`,
-            stripIndent: true,
+            prependData: `@use "src/global/redesign/base/_variables.scss" as *;`,            stripIndent: true,
         },
         postcss: {configFilePath: path.resolve("./postcss.config.cjs")},
     }),

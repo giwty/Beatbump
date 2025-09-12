@@ -12,7 +12,8 @@ func init() {
 	// Run a single update
 	token, err := extractor.RunOnce()
 	if err != nil {
-		log.Fatal("Error during extraction:", err)
+		log.Printf("Error during extraction, potoken will not work:", err)
+		return
 	}
 	log.Printf("Extracted token: %s", token)
 

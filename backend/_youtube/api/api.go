@@ -205,7 +205,11 @@ func Player(videoId string, playlistId string, client ClientInfo, params Params,
 	innertubeContext := prepareInnertubeContext(client, nil)
 	state, err := GetPlayerInfo(videoId, authObj)
 
-	str := strconv.FormatUint(state.SignatureTimestamp, 10)
+	str := ""
+	if err == nil {
+		str = strconv.FormatUint(state.SignatureTimestamp, 10)
+	}
+
 	data := innertubeRequest{
 		//RequestAttributes: additionalRequestAttributes,
 		VideoID:        videoId,
@@ -222,9 +226,6 @@ func Player(videoId string, playlistId string, client ClientInfo, params Params,
 				//Referer:            "https://www.youtube.com/watch?v=" + videoId,
 			},
 		},
-		/*ServiceIntegrityDimensions: &ServiceIntegrityDimensions{
-			PoToken: "51217476",
-		},*/
 	}
 
 	resp, err := callAPI(playerUrl, data, client, authObj)

@@ -23,6 +23,9 @@ const config: UserConfig = {
 		minifySyntax: true,
 	},
 	server: {
+		hmr: {
+			overlay: false,
+		},
 		fs: {
 			strict: false,
 			allow: ["../", "./"],

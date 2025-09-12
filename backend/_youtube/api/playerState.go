@@ -30,7 +30,7 @@ type PlayerInfo struct {
 
 // from https://github.com/iv-org/inv_sig_helper
 var (
-	REGEX_HELPER_OBJ_NAME = `;([A-Za-z0-9_\$]{2,})(?:\.|\[)`
+	REGEX_HELPER_OBJ_NAME = `([A-Za-z0-9_\$]{2,})(?:\.|\[)`
 	//REGEX_HELPER_OBJ_NAME    = `;([A-Za-z0-9_\\$]{2,})\...\(`
 
 	TEST_YOUTUBE_VIDEO = "https://www.youtube.com/watch?v=jNQXAC9IVRw" // Replace with actual URL
@@ -38,7 +38,7 @@ var (
 
 	REGEX_SIGNATURE_FUNCTION_PATTERNS = []string{
 		`\s*?([a-zA-Z0-9_\$]{1,})=function\([a-zA-Z]{1}\)\{(.{1}=.{1}\.split\([a-zA-Z0-9\-_\$\[\]"]+\)[^\}{]+)return .{1}\.join\([a-zA-Z0-9\-_\$\[\]"]+\)\}`, // old regex
-		`([a-zA-Z0-9_$]{1,})=function\(([a-zA-Z0-9_$]{1})\)\{[^}]*GLOBAL_VAR_NAME\[[^\]]+\][^}]*return [^}]*GLOBAL_VAR_NAME\[[^\]]+\][^}]*\}`,                // new regex
+		`([a-zA-Z0-9_$]{1,})=function\(([a-zA-Z0-9_$]{1})\)\{[^&}]*GLOBAL_VAR_NAME\[[^\]]+\][^}]*return [^}]*GLOBAL_VAR_NAME\[[^\]]+\][^}]*\}`,                // new regex
 		`([a-zA-Z0-9_$]{1,})=function\(([a-zA-Z0-9_$]{1})\)\{[^}]*return [^}]*GLOBAL_VAR_NAME\[[^\]]+\][^}]*\}`,                                              // more general regex
 	}
 

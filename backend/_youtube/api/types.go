@@ -140,7 +140,7 @@ var (
 
 	IOS_MUSIC = ClientInfo{
 		ClientName:    "IOS_MUSIC",
-		ClientVersion: "7.27.0",
+		ClientVersion: "6.42",
 		DeviceMake:    "Apple",
 		DeviceModel:   "iPhone16,2",
 		OsName:        "iPhone",
@@ -184,8 +184,9 @@ var (
 
 	TV = ClientInfo{
 		ClientName:    "TVHTML5",
-		ClientVersion: "7.20241201.18.0",
+		ClientVersion: "7.20250312.16.00",
 		ClientId:      "7",
+		userAgent: "Mozilla/5.0 (ChromiumStylePlatform) Cobalt/25.lts.30.1034943-gold (unlike Gecko), Unknown_TV_Unknown_0/Unknown (Unknown, Unknown)",
 		//OsName:        "Macintosh",
 		//OsVersion:     "10.15",
 		//Platform:      "DESKTOP",
@@ -193,7 +194,14 @@ var (
 		//userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:133.0) Gecko/20100101 Firefox/133.0,gzip(gfe)",
 	}
 
-	tv_embedded = ClientInfo{
+	TV_SIMPLY = ClientInfo{
+		ClientName:    "TVHTML5_SIMPLY",
+		ClientVersion: "1.0",
+		ClientId:      "75",
+	}
+
+
+	TVHTML5_SIMPLY_EMBEDDED_PLAYER = ClientInfo{
 		ClientName:    "TVHTML5_SIMPLY_EMBEDDED_PLAYER",
 		ClientVersion: "2.0",
 		ClientId:      "85",
