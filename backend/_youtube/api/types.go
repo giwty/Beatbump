@@ -57,7 +57,7 @@ type contentPlaybackContext struct {
 
 type inntertubeContext struct {
 	Client  innertubeClient   `json:"client"`
-	Request map[string]string `json:"request"`
+	Request map[string]string `json:"request",omitempty`
 	User    map[string]string `json:"user"`
 	//CaptionParams string          `json:"caption_params"`
 }
@@ -74,11 +74,11 @@ type innertubeClient struct {
 	VisitorData        string  `json:"visitorData,omitempty"`
 	OriginalUrl        *string `json:"originalUrl,omitempty"`
 	DeviceExperimentId string  `json:"deviceExperimentId,omitempty"`
-	DeviceMake         string  `json:"deviceMake"`
+	DeviceMake         string  `json:"deviceMake",omitempty`
 	BrowserName        *string `json:"BrowserName,omitempty"`
 	BrowserVersion     *string `json:"browserVersion,omitempty"`
 	Platform           string  `json:"platform,omitempty"`
-	DeviceModel        string  `json:"deviceModel"`
+	DeviceModel        string  `json:"deviceModel",omitempty`
 	OsName             string  `json:"osName,omitempty"`
 	OsVersion          string  `json:"osVersion,omitempty"`
 	ScreenPixelDensity string  `json:"screenPixelDensity,omitempty"`
@@ -140,19 +140,29 @@ var (
 
 	IOS_MUSIC = ClientInfo{
 		ClientName:    "IOS_MUSIC",
-		ClientVersion: "6.42",
+		ClientVersion: "6.33",
 		DeviceMake:    "Apple",
 		DeviceModel:   "iPhone16,2",
-		OsName:        "iPhone",
-		OsVersion:     "18.3.2.22D82",
+		//OsName:        "iPhone",
+		//OsVersion:     "18.3.2.22D82",
 		//ClientKey:     "AIzaSyB-63vPrdThhKuerbB2N_l7Kwwcxj6yUAc", // seems like same ClientKey works for both clients
-		userAgent: "com.google.ios.youtubemusic/7.27.0 (iPhone16,2; U; CPU iOS 18_1_0 like Mac OS X;)",
+		userAgent: "com.google.ios.youtubemusic/6.33 (iPhone16,2; U; CPU iOS 18_1_0 like Mac OS X;)",
 	}
 
 	WEB_CREATOR = ClientInfo{
 		ClientName:    "WEB_CREATOR",
 		ClientVersion: "1.20250312.03.01",
 		ClientId:      "62",
+		//ClientKey:     "AIzaSyB-63vPrdThhKuerbB2N_l7Kwwcxj6yUAc", // seems like same ClientKey works for both clients
+		//DeviceModel: "iPhone16,2",
+		//userAgent:   "com.google.ios.youtubemusic/7.27.0 (iPhone16,2; U; CPU iOS 18_1_0 like Mac OS X;)",
+	}
+
+	ANDROID_MUSIC = ClientInfo{
+		ClientName:    "ANDROID_MUSIC",
+		ClientVersion: " 7.27.52",
+		//ClientId:      "62",
+				userAgent:     "com.google.android.youtube/19.09.37 (Linux; U; Android 11) gzip",
 		//ClientKey:     "AIzaSyB-63vPrdThhKuerbB2N_l7Kwwcxj6yUAc", // seems like same ClientKey works for both clients
 		//DeviceModel: "iPhone16,2",
 		//userAgent:   "com.google.ios.youtubemusic/7.27.0 (iPhone16,2; U; CPU iOS 18_1_0 like Mac OS X;)",
@@ -184,7 +194,7 @@ var (
 
 	TV = ClientInfo{
 		ClientName:    "TVHTML5",
-		ClientVersion: "7.20250312.16.00",
+		ClientVersion: "7.20240925.00.00",
 		ClientId:      "7",
 		userAgent: "Mozilla/5.0 (ChromiumStylePlatform) Cobalt/25.lts.30.1034943-gold (unlike Gecko), Unknown_TV_Unknown_0/Unknown (Unknown, Unknown)",
 		//OsName:        "Macintosh",

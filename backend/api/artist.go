@@ -3,7 +3,6 @@ package api
 import (
 	"beatbump-server/backend/_youtube"
 	"beatbump-server/backend/_youtube/api"
-	"beatbump-server/backend/_youtube/api/auth"
 	"encoding/json"
 	"fmt"
 	"github.com/labstack/echo/v4"
@@ -23,8 +22,7 @@ func ArtistEndpointHandler(c echo.Context) error {
 	urlQuery := c.Request().URL.Query()
 
 	qparams := urlQuery.Get("params")
-	authObj := (c.(*auth.AuthContext)).AuthContext
-	responseBytes, err = api.Browse(browseId, api.PageType_MusicPageTypeArtist, qparams, nil, nil, nil, api.WebMusic, authObj)
+	responseBytes, err = api.Browse(browseId, api.PageType_MusicPageTypeArtist, qparams, nil, nil, nil, api.WebMusic)
 
 	if err != nil {
 		return c.String(http.StatusInternalServerError, fmt.Sprintf("Error building API request: %s", err))

@@ -1,13 +1,21 @@
 package main
 
 import (
-	"beatbump-server/backend/_youtube/api/auth"
 	"beatbump-server/backend/api"
+	"os"
+
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 )
 
 func main() {
+
+	companionBaseURL := os.Getenv("COMPANION_BASE_URL")
+	companionAPIKey := os.Getenv("COMPANION_API_KEY")
+
+	if companionBaseURL == "" || companionAPIKey == "" {
+		panic("COMPANION_BASE_URL and COMPANION_API_KEY must be set")
+	}
 
 	e := echo.New()
 
@@ -20,7 +28,6 @@ func main() {
 		HTML5:      true,
 	}))
 
-	e.Use(auth.AuthMiddleware)
 	e.GET("/api/v1/search.json", api.SearchEndpointHandler)
 	e.GET("/api/v1/player.json", api.PlayerEndpointHandler)
 	e.GET("/api/v1/playlist.json", api.PlaylistEndpointHandler)
@@ -37,9 +44,6 @@ func main() {
 	e.GET("/api/v1/trending/:browseId", api.TrendingEndpointHandler)
 
 	e.GET("/api/v1/artist/:artistId", api.ArtistEndpointHandler)
-
-	e.GET("/api/v1/deviceOauth", auth.DeviceOauth)
-	e.GET("/api/v1/deviceOauth/:deviceCode", auth.AuthorizeOauth)
 
 	e.Logger.Fatal(e.Start(":8080"))
 }

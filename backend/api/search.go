@@ -52,6 +52,8 @@ func SearchEndpointHandler(c echo.Context) error {
 	}
 
 	var searchResponse _youtube.SearchResponse
+	responseStr := string(responseBytes)
+	fmt.Println(responseStr)
 	err = json.Unmarshal(responseBytes, &searchResponse)
 	if err != nil {
 		return c.String(http.StatusInternalServerError, fmt.Sprintf("Error building API request: %s", err))
@@ -135,7 +137,11 @@ func parseResponse(content []_youtube.SectionListRendererContents) ([]MusicShelf
 			continue
 		}
 
-		title := shelf.MusicShelfRenderer.Title.Runs[0].Text
+		title := ""
+		if len(shelf.MusicShelfRenderer.Title.Runs) != 0{
+			title = shelf.MusicShelfRenderer.Title.Runs[0].Text
+		}
+		
 		currShelf.Header.Title = title
 		currShelf.Contents = make([]IListItemRenderer, 0, len(shelf.MusicShelfRenderer.Contents))
 		for _, entry := range shelf.MusicShelfRenderer.Contents {
