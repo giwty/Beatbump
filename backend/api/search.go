@@ -52,8 +52,6 @@ func SearchEndpointHandler(c echo.Context) error {
 	}
 
 	var searchResponse _youtube.SearchResponse
-	responseStr := string(responseBytes)
-	fmt.Println(responseStr)
 	err = json.Unmarshal(responseBytes, &searchResponse)
 	if err != nil {
 		return c.String(http.StatusInternalServerError, fmt.Sprintf("Error building API request: %s", err))
