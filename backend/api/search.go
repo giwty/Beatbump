@@ -13,11 +13,11 @@ import (
 
 var searchFilters = map[string]string{
 	"all":                 "",
-	"songs":               "EgWKAQIIAWoKEAMQBBAJEAoQBQ%3D%3D",
-	"videos":              "EgWKAQIQAWoKEAMQBBAJEAoQBQ%3D%3D",
-	"albums":              "EgWKAQIYAWoKEAMQBBAJEAoQBQ%3D%3D",
-	"artists":             "EgWKAQIgAWoKEAMQBBAJEAoQBQ%3D%3D",
-	"community_playlists": "EgeKAQQoAEABagwQDhAKEAkQAxAEEAU%3D",
+	"songs":               "EgWKAQIIAWoQEAoQBBAJEAUQAxAVEBAQEQ%3D%3D",
+	"videos":              "EgWKAQIQAWoQEAoQBBAJEAUQAxAVEBAQEQ%3D%3D",
+	"albums":              "EgWKAQIYAWoQEAoQBBAJEAUQAxAVEBAQEQ%3D%3D",
+	"artists":             "EgWKAQIgAWoQEAoQBBAJEAUQAxAVEBAQEQ%3D%3D",
+	"community_playlists": "EgeKAQQoAEABahAQChAEEAkQBRADEBUQEBAR",
 	"featured_playlists":  "EgeKAQQoADgBagwQDhAKEAMQBBAJEAU%3D",
 	"all_playlists":       "EgWKAQIoAWoKEAMQBBAKEAUQCQ%3D%3D",
 }

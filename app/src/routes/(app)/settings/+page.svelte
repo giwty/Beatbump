@@ -9,48 +9,14 @@
     import Header from "$components/Layouts/Header.svelte";
     import { AudioPlayer } from "$lib/player";
     import { settings, type Theme } from "$stores/settings";
-    import {onMount} from "svelte";
-    import {APIClient} from "$lib/api";
-    import {notify} from "$lib/utils";
     const themes: Theme[] = ["Dark", "Dim", "Midnight", "YTM"];
 
-    let oauthInfo = {}
-    onMount(async () => {
-        try {
-            const response = await APIClient.fetch(`/api/v1/deviceOauth`);
-            if (!response.ok) {
-                console.log(response)
-            }
-            oauthInfo = await response.json();
-        } catch (err) {
-            console.log(err)
-        }
-    });
+   
 
     function handleStreamSelect() {
         AudioPlayer.dispatch("update:stream_type", {
             type: $settings.playback.Stream ?? "HTTP",
         });
-    }
-
-    async function handleOauthComplete() {
-        try {
-            if (oauthInfo == undefined || oauthInfo.deviceCode == ""){
-                return
-            }
-            notify(`Calling server to complete OAuth flow`, "success");
-            const response = await APIClient.fetch(`/api/v1/deviceOauth/${oauthInfo.deviceCode}`);
-            if (!response.ok) {
-                throw new Error('Failed to fetch data');
-            }
-            notify(`OAuth flow completed successfully`, "success");
-            setTimeout(() => {
-                window.location.reload();
-            }, 1000)
-        } catch (err) {
-            notify(`OAuth flow failed`+err, "error");
-            console.log(err)
-        }
     }
 
     const updatePrefsCookie = async () => {
@@ -140,78 +106,7 @@
                     </select>
                 </div>
             </div>-->
-            <div class="setting">
-                <label for="oauthClientId">
-                    Oauth ClientID
-                    <span class="">
-                        Oauth Client ID
-                    </span>
-                </label>
-                <div class="input-container">
-                    <div class="input no-btn mb-1">
-                        <input
-                            type="text"
-                            on:input={(e) => {
-								let value = e.currentTarget.value;
-                                localStorage.setItem('x-google-client-id',value);
-							}}
-                            value={localStorage.getItem("x-google-client-id")}
-                        />
-                    </div>
-                </div>
-            </div>
-            <div class="setting">
-                <label for="oauthClientSecret">
-                    Oauth Client Secret
-                    <span class="">
-                        Oauth Client Secret
-                    </span>
-                </label>
-                <div class="input-container">
-                    <div class="input no-btn mb-1">
-                        <input
-                            type="text"
-                            on:input={(e) => {
-								let value = e.currentTarget.value;
-                                localStorage.setItem('x-google-client-secret',value);
-							}}
-                            value={localStorage.getItem("x-google-client-secret")}
-                        />
-                    </div>
-                </div>
-            </div>
-            <div class="setting">
-                <label>Oauth</label>
-                {#if oauthInfo.oauthStart == undefined || oauthInfo.oauthStart === ""}
-                    <label>{oauthInfo.status || "Logged in"}</label>
-                {:else}
-                <a target="_blank" href={oauthInfo.oauthStart}>Start Oauth flow</a>
-                <button
-                    class="link mt-2"
-                    on:click={handleOauthComplete}>Complete</button
-                >
-                {/if}
-            </div>
-            <div class="setting">
-                <label for="cookieHeader"
-                >Cookie header
-                    <span class="">
-                        Copy the Cookie header value and paste here.
-                    </span>
-                </label>
-                <div class="input-container">
-                    <div class="input no-btn mb-1">
-                        <input
-                            type="text"
-                            on:input={(e) => {
-								let value = e.currentTarget.value;
-                                localStorage.setItem('x-google-cookie',value);
-							}}
-                            value={localStorage.getItem("x-google-cookie")}
-                        />
-                    </div>
-                </div>
-            </div>
+            
            <!-- <div class="setting">
                 <label>Remember Last Track</label>
                 <input
