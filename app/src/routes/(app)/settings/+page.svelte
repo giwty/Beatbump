@@ -139,7 +139,46 @@
                     </select>
                 </div>
             </div>-->
-
+              <div class="setting">
+                <label for="CompanionBaseURL">
+                    Companion base URL
+                    <span class="">
+                        The base URL for the Invidious companion API.
+                    </span>
+                </label>
+                <div class="input-container">
+                    <div class="input no-btn mb-1">
+                        <input
+                            type="text"
+                            on:input={(e) => {
+								let value = e.currentTarget.value;
+                                localStorage.setItem('x-companion-base-url',value);
+							}}
+                            value={localStorage.getItem("x-companion-base-url")}
+                        />
+                    </div>
+                </div>
+            </div>
+            <div class="setting">
+                <label for="companionApiKey">
+                    Companion API Key
+                    <span class="">
+                        Companion API Key
+                    </span>
+                </label>
+                <div class="input-container">
+                    <div class="input no-btn mb-1">
+                        <input
+                            type="text"
+                            on:input={(e) => {
+								let value = e.currentTarget.value;
+                                localStorage.setItem('x-companion-api-key',value);
+							}}
+                            value={localStorage.getItem("x-companion-api-key")}
+                        />
+                    </div>
+                </div>
+            </div>
             <div class="setting">
                 <!-- svelte-ignore a11y-label-has-associated-control -->
                 <label

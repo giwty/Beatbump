@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -22,15 +21,6 @@ const URL_BASE = "https://music.youtube.com/youtubei/v1/"
 
 const DEBUG = false
 
-var (
-	companionBaseURL string
-	companionAPIKey   string
-)
-
-func init(){
-	companionBaseURL = os.Getenv("COMPANION_BASE_URL")
-	companionAPIKey = os.Getenv("COMPANION_API_KEY")
-}
 
 func Browse(browseId string, pageType PageType, params string,
 	visitorData *string, itct *string, ctoken *string, client ClientInfo) ([]byte, error) {
@@ -61,7 +51,7 @@ func Browse(browseId string, pageType PageType, params string,
 	if params != "" {
 		data.Params = params
 	}
-	resp, err := callAPI(urlAddress, data, client)
+	resp, err := callAPI(urlAddress, data, client,nil)
 	if err != nil {
 		return nil, err
 	}
@@ -88,7 +78,7 @@ func GetSearchSuggestions(query string, client ClientInfo) ([]byte, error) {
 		Input:   strPtr(query),
 	}
 
-	resp, err := callAPI(url, data, client)
+	resp, err := callAPI(url, data, client,nil)
 	if err != nil {
 		return nil, err
 	}
@@ -128,7 +118,7 @@ func Search(query string, filter string, itct *string, ctoken *string, client Cl
 		data.Params = filter
 	}
 
-	resp, err := callAPI(url, data, client)
+	resp, err := callAPI(url, data, client,nil)
 	if err != nil {
 		return nil, err
 	}
@@ -161,7 +151,7 @@ func GetQueue(videoId string, playlistId string, client ClientInfo) ([]byte, err
 		},*/
 	}
 
-	resp, err := callAPI(url, data, client)
+	resp, err := callAPI(url, data, client,nil)
 	if err != nil {
 		return nil, err
 	}
@@ -198,7 +188,7 @@ func Next(videoId string, playlistId string, client ClientInfo, params Params) (
 		},*/
 	}
 
-	resp, err := callAPI(url, data, client)
+	resp, err := callAPI(url, data, client,nil)
 	if err != nil {
 		return nil, err
 	}
@@ -206,7 +196,7 @@ func Next(videoId string, playlistId string, client ClientInfo, params Params) (
 
 }
 
-func Player(videoId string, playlistId string, client ClientInfo, params Params) ([]byte, error) {
+func Player(videoId string, playlistId string, client ClientInfo, params Params, companionBaseURL string, companionAPIKey *string) ([]byte, error) {
 
 	playerUrl := companionBaseURL + "/companion/youtubei/v1/player"
 
@@ -215,7 +205,7 @@ func Player(videoId string, playlistId string, client ClientInfo, params Params)
 		VideoID:        videoId,
 	}
 
-	resp, err := callAPI(playerUrl, data, client)
+	resp, err := callAPI(playerUrl, data, client,companionAPIKey)
 	if err != nil {
 		return nil, err
 	}
@@ -229,26 +219,26 @@ func DownloadWebpage(urlAddress string, clientInfo ClientInfo) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	return doRequest(clientInfo, req, nil)
+	return doRequest(clientInfo, req, nil,nil)
 }
 
-func callAPI(urlAddress string, requestPayload innertubeRequest, clientInfo ClientInfo) ([]byte, error) {
+func callAPI(urlAddress string, requestPayload innertubeRequest, clientInfo ClientInfo, companionAPIKey *string) ([]byte, error) {
 
 	req, err := http.NewRequest(http.MethodPost, urlAddress, nil)
 
 	if err != nil {
 		return nil, err
 	}
-	return doRequest(clientInfo, req, &requestPayload)
+	return doRequest(clientInfo, req, &requestPayload,companionAPIKey)
 }
 
-func doRequest(clientInfo ClientInfo, req *http.Request, requestPayload *innertubeRequest) ([]byte, error) {
+func doRequest(clientInfo ClientInfo, req *http.Request, requestPayload *innertubeRequest,companionAPIKey *string) ([]byte, error) {
 
 	client := getHttpClient()
 	urlAddress := req.URL.String()
 
 	if strings.Contains(urlAddress, "companion") {
-		req.Header.Set("Authorization", "Bearer " + companionAPIKey)
+		req.Header.Set("Authorization", "Bearer " + *companionAPIKey)
 	}
 
 	if clientInfo.userAgent != "" {
@@ -277,12 +267,7 @@ func doRequest(clientInfo ClientInfo, req *http.Request, requestPayload *innertu
 
 	
 	
-	if DEBUG {
-		dump, err := httputil.DumpRequestOut(req, true)
-		if err == nil {
-			fmt.Print(string(dump))
-		}
-	}
+	
 
 	resp, err := client.Do(req)
 
@@ -306,6 +291,11 @@ func doRequest(clientInfo ClientInfo, req *http.Request, requestPayload *innertu
 
 	if resp.StatusCode != http.StatusOK {
 		fmt.Printf("API call failed with status %d \n  %s", resp.StatusCode, string(respBytes))
+		if strings.Contains(urlAddress, "companion") {
+			dump, _ := httputil.DumpRequestOut(req, true)
+			fmt.Println(string(dump))
+			fmt.Println(string(respBytes))
+		}
 		return nil, errors.New(resp.Status)
 	}
 

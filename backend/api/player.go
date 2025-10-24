@@ -27,8 +27,15 @@ func PlayerEndpointHandler(c echo.Context) error {
 
 	var responseBytes []byte
 	var err error
-	
-	responseBytes, err = callPlayerAPI(api.IOS_MUSIC, videoId, playlistId)
+
+	companionAPIKey := c.Request().Header.Get("x-companion-api-key")
+	companionBaseURL := c.Request().Header.Get("x-companion-base-url")
+
+	if companionBaseURL == "" || companionAPIKey == "" {
+		return c.String(http.StatusInternalServerError, "Missing companion API configuration headers")
+	}
+
+	responseBytes, err = callPlayerAPI(api.IOS_MUSIC, videoId, playlistId, companionBaseURL, &companionAPIKey)
 
 	if err != nil {
 		return c.String(http.StatusInternalServerError, err.Error())
@@ -63,9 +70,9 @@ func PlayerEndpointHandler(c echo.Context) error {
 
 
 
-func callPlayerAPI(clientInfo api.ClientInfo, videoId string, playlistId string) ([]byte, error) {
+func callPlayerAPI(clientInfo api.ClientInfo, videoId string, playlistId string, companionBaseURL string, companionAPIKey *string) ([]byte, error) {
 
-	responseBytes, err := api.Player(videoId, playlistId, clientInfo, nil)
+	responseBytes, err := api.Player(videoId, playlistId, clientInfo, nil, companionBaseURL, companionAPIKey)
 
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("Error building API request: %s", err))

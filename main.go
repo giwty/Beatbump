@@ -2,20 +2,12 @@ package main
 
 import (
 	"beatbump-server/backend/api"
-	"os"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 )
 
 func main() {
-
-	companionBaseURL := os.Getenv("COMPANION_BASE_URL")
-	companionAPIKey := os.Getenv("COMPANION_API_KEY")
-
-	if companionBaseURL == "" || companionAPIKey == "" {
-		panic("COMPANION_BASE_URL and COMPANION_API_KEY must be set")
-	}
 
 	e := echo.New()
 
