@@ -5,8 +5,9 @@ import (
 	"beatbump-server/backend/_youtube/api"
 	"encoding/json"
 	"fmt"
-	"github.com/labstack/echo/v4"
 	"net/http"
+
+	"github.com/labstack/echo/v4"
 )
 
 type PlaylistEndpointParams struct {
@@ -45,13 +46,19 @@ type PlaylistAPIResponse struct {
 }
 
 func PlaylistEndpointHandler(c echo.Context) error {
-
 	query := c.Request().URL.Query()
 	browseID := query.Get("list")
 	itct := query.Get("itct")
 	ctoken := query.Get("ctoken")
-	//referrer := query.Get("ref")
-	//visitorData := query.Get("visitorData")
+
+	r, err := GetPlaylist(browseID, ctoken, itct)
+	if err != nil {
+		return c.String(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(http.StatusOK, r)
+}
+func GetPlaylist(browseID string, ctoken string, itct string) (PlaylistAPIResponse, error) {
 	var responseBytes []byte
 	var err error
 	if ctoken != "" && itct != "" {
@@ -61,19 +68,17 @@ func PlaylistEndpointHandler(c echo.Context) error {
 	}
 
 	if err != nil {
-		return c.String(http.StatusInternalServerError, fmt.Sprintf("Error building API request: %s", err))
+		return PlaylistAPIResponse{}, fmt.Errorf("error building API request: %w", err)
 	}
 
 	playlistResponse := _youtube.PlaylistResponse{}
 	err = json.Unmarshal(responseBytes, &playlistResponse)
 	if err != nil {
-		return c.String(http.StatusInternalServerError, fmt.Sprintf("Error building API request: %s", err))
+		return PlaylistAPIResponse{}, fmt.Errorf("error unmarshalling response: %w", err)
 	}
 
 	r := parsePlaylist(playlistResponse)
-
-	return c.JSON(http.StatusOK, r)
-
+	return r, nil
 }
 
 func parsePlaylist(playlistResponse _youtube.PlaylistResponse) PlaylistAPIResponse {

@@ -17,7 +17,7 @@
 	import { onMount } from "svelte";
 	import { writable } from "svelte/store";
 	import type { PageData } from "./$types";
-    import {APIClient} from "$lib/api";
+	import { APIClient } from "$lib/api";
 
 	export let data: PageData;
 
@@ -71,7 +71,7 @@
 	const getCarousel = async () => {
 		if (!carouselContinuations) return;
 		const response = await APIClient.fetch(
-            `/api/v1/playlist.json` +
+			`/api/v1/playlist.json` +
 				"?ref=" +
 				id +
 				`${
@@ -100,7 +100,8 @@
 
 		try {
 			isLoading = true;
-			const response = await APIClient.fetch(`/api/v1/playlist.json` +
+			const response = await APIClient.fetch(
+				`/api/v1/playlist.json` +
 					"?ref=" +
 					id +
 					"&visitorData=" +
@@ -299,6 +300,29 @@
 					icon: "play",
 					type: "outlined",
 					text: "Start Radio",
+				},
+				{
+					action: async () => {
+						try {
+							const res = await APIClient.fetch(
+								`/api/v1/download/playlist?playlistId=${id}&playlistName=${encodeURIComponent(
+									pageTitle,
+								)}`,
+							);
+							if (res.ok) {
+								notify("Download started!", "success");
+							} else if (res.status === 409) {
+								notify("Download already queued!", "info");
+							} else {
+								notify("Failed to start download", "error");
+							}
+						} catch (e) {
+							notify("Failed to start download", "error");
+						}
+					},
+					icon: "download",
+					text: "Download",
+					type: "outlined",
 				},
 				{
 					// eslint-disable-next-line @typescript-eslint/no-empty-function

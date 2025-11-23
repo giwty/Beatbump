@@ -246,6 +246,11 @@
 			goto(link);
 			return;
 		}
+
+		if (data.endpoint?.pageType.includes("PLAYLIST") ) {
+			goto(`/playlist/${data?.endpoint?.browseId}`);
+			return;
+		}
 		try {
 			loading = true;
 			videoId = data.videoId ? data.videoId : "";

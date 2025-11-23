@@ -1,93 +1,114 @@
 <script
-    context="module"
-    lang="ts"
+	context="module"
+	lang="ts"
 >
 </script>
 
 <script lang="ts">
-    import { browser } from "$app/environment";
-    import Header from "$components/Layouts/Header.svelte";
-    import { AudioPlayer } from "$lib/player";
-    import { settings, type Theme } from "$stores/settings";
-    const themes: Theme[] = ["Dark", "Dim", "Midnight", "YTM"];
+	import { browser } from "$app/environment";
+	import Header from "$components/Layouts/Header.svelte";
+	import { APIClient } from "$lib/api";
+	import { AudioPlayer } from "$lib/player";
+	import { settings, type Theme } from "$stores/settings";
+	const themes: Theme[] = ["Dark", "Dim", "Midnight", "YTM"];
 
-   
+	function handleStreamSelect() {
+		AudioPlayer.dispatch("update:stream_type", {
+			type: $settings.playback.Stream ?? "HTTP",
+		});
+	}
 
-    function handleStreamSelect() {
-        AudioPlayer.dispatch("update:stream_type", {
-            type: $settings.playback.Stream ?? "HTTP",
-        });
-    }
+	const updatePrefsCookie = async () => {
+		await fetch("/settings/update.json", {
+			body: JSON.stringify({
+				"Proxy Thumbnails": $settings.network["Proxy Thumbnails"],
+				Restricted: $settings.search.Restricted,
+			}),
+			method: "POST",
+		});
+	};
 
-    const updatePrefsCookie = async () => {
-        await fetch("/settings/update.json", {
-            body: JSON.stringify({
-                "Proxy Thumbnails": $settings.network["Proxy Thumbnails"],
-                Restricted: $settings.search.Restricted,
-            }),
-            method: "POST",
-        });
-    };
+	import { onMount } from "svelte";
+	onMount(async () => {
+		if (browser) {
+			const res = await APIClient.fetch("/api/v1/settings");
+			if (res.ok) {
+				const data = await res.json();
+				const input = document.getElementById(
+					"downloadPath",
+				) as HTMLInputElement;
+				if (input && data.downloadPath) {
+					input.value = data.downloadPath;
+				}
+				const ongoingInput = document.getElementById(
+					"ongoing-listening",
+				) as HTMLInputElement;
+				if (ongoingInput && data.ongoingListeningEnabled) {
+					ongoingInput.checked = data.ongoingListeningEnabled === "true";
+				}
+			}
+		}
+	});
 </script>
 
 <Header
-    title="Settings"
-    url="/settings"
-    desc="Configure your app settings"
+	title="Settings"
+	url="/settings"
+	desc="Configure your app settings"
 />
 {#if browser}
-    <main class="resp-content-width">
-        <section>
-            <span class="h5">Appearance</span>
-            <div class="setting">
-                <label for="theme">Theme </label>
-                <div class="select">
-                    <select
-                        name="theme"
-                        id="theme"
-                        bind:value={$settings["appearance"]["Theme"]}
-                    >
-                        {#each themes as theme}
-                            <option
-                                value={theme}
-                                selected={$settings["appearance"]["Theme"] === theme}
-                            >{theme}</option
-                            >
-                        {/each}
-                    </select>
-                </div>
-            </div>
-            <div class="setting">
-                <label>Immersive Queue</label>
-                <input
-                    type="checkbox"
-                    name="immersive-queue"
-                    id="immersive-queue"
-                    bind:checked={$settings["appearance"]["Immersive Queue"]}
-                />
-                <label
-                    for="immersive-queue"
-                    class="switch"
-                />
-            </div>
-        </section>
-        <section>
-            <span class="h5">Playback</span>
-            <div class="setting">
-                <label>Dedupe Automix</label>
+	<main class="resp-content-width">
+		<section>
+			<span class="h5">Appearance</span>
+			<div class="setting">
+				<label for="theme">Theme </label>
+				<div class="select">
+					<select
+						name="theme"
+						id="theme"
+						bind:value={$settings["appearance"]["Theme"]}
+					>
+						{#each themes as theme}
+							<option
+								value={theme}
+								selected={$settings["appearance"]["Theme"] === theme}
+								>{theme}</option
+							>
+						{/each}
+					</select>
+				</div>
+			</div>
+			<div class="setting">
+				<label>Immersive Queue</label>
+				<input
+					type="checkbox"
+					name="immersive-queue"
+					id="immersive-queue"
+					bind:checked={$settings["appearance"]["Immersive Queue"]}
+				/>
+				<label
+					for="immersive-queue"
+					class="switch"
+				/>
+			</div>
+		</section>
+		<section>
+			<span class="h5">Playback</span>
+			<div class="setting">
+				<label>Dedupe Automix</label>
 
-                <input
-                    name="dedupe"
-                    id="dedupe"
-                    type="checkbox"
-                    bind:value={$settings["playback"]["Dedupe Automix"]}
-                />
-                <label
-                    for="dedupe"
-                    class="switch"
-                />
-            </div>
-           <!-- <div class="setting">
+				<input
+					name="dedupe"
+					id="dedupe"
+					type="checkbox"
+					bind:value={$settings["playback"]["Dedupe Automix"]}
+				/>
+				<label
+					for="dedupe"
+					class="switch"
+				/>
+			</div>
+			<!-- <div class="setting">
                 <label for="quality">Quality</label>
                 <div class="select">
                     <select
@@ -106,8 +127,8 @@
                     </select>
                 </div>
             </div>-->
-            
-           <!-- <div class="setting">
+
+			<!-- <div class="setting">
                 <label>Remember Last Track</label>
                 <input
                     name="lasttrack"
@@ -120,7 +141,7 @@
                     class="switch"
                 />
             </div>-->
-           <!-- <div class="setting">
+			<!-- <div class="setting">
                 <label for="stream">Stream </label>
                 <div class="select">
                     <select
@@ -139,67 +160,104 @@
                     </select>
                 </div>
             </div>-->
-              <div class="setting">
-                <label for="CompanionBaseURL">
-                    Companion base URL
-                    <span class="">
-                        The base URL for the Invidious companion API.
-                    </span>
-                </label>
-                <div class="input-container">
-                    <div class="input no-btn mb-1">
-                        <input
-                            type="text"
-                            on:input={(e) => {
+			<div class="setting">
+				<label for="CompanionBaseURL">
+					Companion base URL
+					<span class=""> The base URL for the Invidious companion API. </span>
+				</label>
+				<div class="input-container">
+					<div class="input no-btn mb-1">
+						<input
+							type="text"
+							on:input={(e) => {
 								let value = e.currentTarget.value;
-                                localStorage.setItem('x-companion-base-url',value);
+								localStorage.setItem("x-companion-base-url", value);
 							}}
-                            value={localStorage.getItem("x-companion-base-url")}
-                        />
-                    </div>
-                </div>
-            </div>
-            <div class="setting">
-                <label for="companionApiKey">
-                    Companion API Key
-                    <span class="">
-                        Companion API Key
-                    </span>
-                </label>
-                <div class="input-container">
-                    <div class="input no-btn mb-1">
-                        <input
-                            type="text"
-                            on:input={(e) => {
+							value={localStorage.getItem("x-companion-base-url")}
+						/>
+					</div>
+				</div>
+			</div>
+			<div class="setting">
+				<label for="companionApiKey">
+					Companion API Key
+					<span class=""> Companion API Key </span>
+				</label>
+				<div class="input-container">
+					<div class="input no-btn mb-1">
+						<input
+							type="text"
+							on:input={(e) => {
 								let value = e.currentTarget.value;
-                                localStorage.setItem('x-companion-api-key',value);
+								localStorage.setItem("x-companion-api-key", value);
 							}}
-                            value={localStorage.getItem("x-companion-api-key")}
-                        />
-                    </div>
-                </div>
-            </div>
-            <div class="setting">
-                <!-- svelte-ignore a11y-label-has-associated-control -->
-                <label
-                >Playback Updates URL
-                    <span class=""
-                    >Playing a song updates the URL with the song's sharing URL.</span
-                    >
-                </label>
-                <input
-                    name="update-url"
-                    id="update-url"
-                    type="checkbox"
-                    bind:checked={$settings["playback"]["Playback Updates URL"]}
-                />
-                <label
-                    for="update-url"
-                    class="switch"
-                />
-            </div>
-        </section>
-        <!--<section>
+							value={localStorage.getItem("x-companion-api-key")}
+						/>
+					</div>
+				</div>
+			</div>
+			<div class="setting">
+				<label for="downloadPath">
+					Download Path
+					<span class=""> Folder where playlists will be downloaded. </span>
+				</label>
+				<div class="input-container">
+					<div class="input no-btn mb-1">
+						<input
+							type="text"
+							id="downloadPath"
+							placeholder="downloads"
+							on:change={async (e) => {
+								const value = e.currentTarget.value;
+								await APIClient.post("/api/v1/settings", {
+									downloadPath: value,
+								});
+							}}
+						/>
+					</div>
+				</div>
+			</div>
+			<div class="setting">
+				<label
+					>Ongoing Listening Download
+					<span class="">Automatically download songs you listen to.</span>
+				</label>
+				<input
+					type="checkbox"
+					id="ongoing-listening"
+					on:change={async (e) => {
+						const checked = e.currentTarget.checked;
+						await APIClient.post("/api/v1/settings", {
+							ongoingListeningEnabled: checked ? "true" : "false",
+						});
+					}}
+				/>
+				<label
+					for="ongoing-listening"
+					class="switch"
+				/>
+			</div>
+			<div class="setting">
+				<!-- svelte-ignore a11y-label-has-associated-control -->
+				<label
+					>Playback Updates URL
+					<span class=""
+						>Playing a song updates the URL with the song's sharing URL.</span
+					>
+				</label>
+				<input
+					name="update-url"
+					id="update-url"
+					type="checkbox"
+					bind:checked={$settings["playback"]["Playback Updates URL"]}
+				/>
+				<label
+					for="update-url"
+					class="switch"
+				/>
+			</div>
+		</section>
+		<!--<section>
             <span class="h5">Network</span>
             <div class="setting">
                 <label for="proxy"
@@ -263,8 +321,8 @@
                 />
             </div>
         </section>-->
-        <section>
-           <!-- <span class="h5">Search</span>
+		<section>
+			<!-- <span class="h5">Search</span>
             <div class="setting">
                 <label for="preserve">Preserve </label>
                 <div class="select">
@@ -283,7 +341,7 @@
                     </select>
                 </div>
             </div>-->
-           <!-- <div class="setting">
+			<!-- <div class="setting">
                 <label for="restricted"
                 >Restricted Mode <span
                 >Can help reduce the amount of explicit or potentially mature
@@ -303,137 +361,137 @@
                     class="switch"
                 />
             </div>-->
-        </section>
-    </main>
+		</section>
+	</main>
 {/if}
 
 <style lang="scss">
-    .input-container {
-        min-width: 15ch !important;
-        max-width: 32ch !important;
-        width: 100%;
-    }
-    button {
-        background: unset;
-        all: unset;
-        margin-top: 0.5rem;
-        $link-color: rgb(245, 245, 245);
-        color: rgb(245, 245, 245) !important;
+	.input-container {
+		min-width: 15ch !important;
+		max-width: 32ch !important;
+		width: 100%;
+	}
+	button {
+		background: unset;
+		all: unset;
+		margin-top: 0.5rem;
+		$link-color: rgb(245, 245, 245);
+		color: rgb(245, 245, 245) !important;
 
-        text-decoration: none;
-        transition: color 0.2s;
-        display: block;
-        &.link {
-            font-weight: 500;
-        }
-        &:active,
-        &:focus,
-        &:hover {
-            background: transparent !important;
-            -webkit-text-decoration: underline 0.001em solid;
-            text-decoration: underline 0.001em solid;
-            text-underline-offset: 0.001em;
-            color: darken($link-color, 15%);
-            outline: none;
-        }
-        &:hover {
-            cursor: pointer;
-        }
-    }
-    label {
-        display: inline-flex;
-        flex-direction: column;
-        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-        Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue",
-        sans-serif;
-        font-size: 1em;
-        text-transform: none !important;
-        font-variant: unset;
-        gap: 0.125em;
-        line-height: 1.4;
-        :last-child {
-            font-size: 0.875em;
-            color: hsla(0, 0%, 100%, 0.7);
-            line-height: 1.1;
-        }
+		text-decoration: none;
+		transition: color 0.2s;
+		display: block;
+		&.link {
+			font-weight: 500;
+		}
+		&:active,
+		&:focus,
+		&:hover {
+			background: transparent !important;
+			-webkit-text-decoration: underline 0.001em solid;
+			text-decoration: underline 0.001em solid;
+			text-underline-offset: 0.001em;
+			color: darken($link-color, 15%);
+			outline: none;
+		}
+		&:hover {
+			cursor: pointer;
+		}
+	}
+	label {
+		display: inline-flex;
+		flex-direction: column;
+		font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+			Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue",
+			sans-serif;
+		font-size: 1em;
+		text-transform: none !important;
+		font-variant: unset;
+		gap: 0.125em;
+		line-height: 1.4;
+		:last-child {
+			font-size: 0.875em;
+			color: hsla(0, 0%, 100%, 0.7);
+			line-height: 1.1;
+		}
 
-        @media screen and (min-width: 40em) {
-            ~ :last-child {
-                margin-left: auto;
-            }
-        }
-    }
+		@media screen and (min-width: 40em) {
+			~ :last-child {
+				margin-left: auto;
+			}
+		}
+	}
 
-    section {
-        display: flex;
-        flex-direction: column;
-        margin-block-end: 1em;
+	section {
+		display: flex;
+		flex-direction: column;
+		margin-block-end: 1em;
 
-        &:not(:last-child) {
-            border-bottom: 0.01em solid rgb(218 218 218 / 8.2%);
-        }
-    }
+		&:not(:last-child) {
+			border-bottom: 0.01em solid rgb(218 218 218 / 8.2%);
+		}
+	}
 
-    .setting {
-        display: inline-flex;
-        color: inherit;
-        vertical-align: top;
-        gap: 1em;
-        flex-direction: column;
-        margin-block: 1em;
+	.setting {
+		display: inline-flex;
+		color: inherit;
+		vertical-align: top;
+		gap: 1em;
+		flex-direction: column;
+		margin-block: 1em;
 
-        &:first-of-type {
-            margin-block-start: 0;
-        }
+		&:first-of-type {
+			margin-block-start: 0;
+		}
 
-        &:last-of-type {
-            margin-block-end: 2em;
-        }
+		&:last-of-type {
+			margin-block-end: 2em;
+		}
 
-        @media screen and (min-width: 40em) {
-            align-items: center;
-            flex-direction: row;
-        }
-    }
+		@media screen and (min-width: 40em) {
+			align-items: center;
+			flex-direction: row;
+		}
+	}
 
-    .switch {
-        position: relative;
-        display: inline-flex;
-        align-items: center;
-        width: 3.8125em;
-        height: 2em;
-        cursor: pointer;
-        overflow: hidden;
-        background-color: rgb(109 109 109 / 35%);
-        border-radius: 1.25rem;
-        transition: background-color 0.3s;
-    }
+	.switch {
+		position: relative;
+		display: inline-flex;
+		align-items: center;
+		width: 3.8125em;
+		height: 2em;
+		cursor: pointer;
+		overflow: hidden;
+		background-color: rgb(109 109 109 / 35%);
+		border-radius: 1.25rem;
+		transition: background-color 0.3s;
+	}
 
-    .switch::after {
-        --size: calc(2rem - (2px * 2));
+	.switch::after {
+		--size: calc(2rem - (2px * 2));
 
-        content: "";
-        position: absolute;
-        width: var(--size);
-        height: var(--size);
-        border-radius: 9999em;
-        background-color: white;
-        top: 50%;
-        transform: translateY(-50%);
-        left: 0.125em;
-        transition: left 0.3s;
-        box-shadow: 0 0 12px -3px rgb(0 0 0 / 38.4%);
-    }
+		content: "";
+		position: absolute;
+		width: var(--size);
+		height: var(--size);
+		border-radius: 9999em;
+		background-color: white;
+		top: 50%;
+		transform: translateY(-50%);
+		left: 0.125em;
+		transition: left 0.3s;
+		box-shadow: 0 0 12px -3px rgb(0 0 0 / 38.4%);
+	}
 
-    [type="checkbox"]:checked + .switch::after {
-        left: 2em;
-    }
+	[type="checkbox"]:checked + .switch::after {
+		left: 2em;
+	}
 
-    [type="checkbox"]:checked + .switch {
-        background-color: #00cd6a;
-    }
+	[type="checkbox"]:checked + .switch {
+		background-color: #00cd6a;
+	}
 
-    [type="checkbox"] {
-        display: none;
-    }
+	[type="checkbox"] {
+		display: none;
+	}
 </style>

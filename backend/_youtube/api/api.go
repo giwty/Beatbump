@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -20,7 +21,6 @@ import (
 const URL_BASE = "https://music.youtube.com/youtubei/v1/"
 
 const DEBUG = false
-
 
 func Browse(browseId string, pageType PageType, params string,
 	visitorData *string, itct *string, ctoken *string, client ClientInfo) ([]byte, error) {
@@ -51,7 +51,7 @@ func Browse(browseId string, pageType PageType, params string,
 	if params != "" {
 		data.Params = params
 	}
-	resp, err := callAPI(urlAddress, data, client,nil)
+	resp, err := callAPI(urlAddress, data, client, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -78,7 +78,7 @@ func GetSearchSuggestions(query string, client ClientInfo) ([]byte, error) {
 		Input:   strPtr(query),
 	}
 
-	resp, err := callAPI(url, data, client,nil)
+	resp, err := callAPI(url, data, client, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -118,7 +118,7 @@ func Search(query string, filter string, itct *string, ctoken *string, client Cl
 		data.Params = filter
 	}
 
-	resp, err := callAPI(url, data, client,nil)
+	resp, err := callAPI(url, data, client, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -151,7 +151,7 @@ func GetQueue(videoId string, playlistId string, client ClientInfo) ([]byte, err
 		},*/
 	}
 
-	resp, err := callAPI(url, data, client,nil)
+	resp, err := callAPI(url, data, client, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -188,7 +188,7 @@ func Next(videoId string, playlistId string, client ClientInfo, params Params) (
 		},*/
 	}
 
-	resp, err := callAPI(url, data, client,nil)
+	resp, err := callAPI(url, data, client, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -197,15 +197,35 @@ func Next(videoId string, playlistId string, client ClientInfo, params Params) (
 }
 
 func Player(videoId string, playlistId string, client ClientInfo, params Params, companionBaseURL string, companionAPIKey *string) ([]byte, error) {
-
+	if companionBaseURL == "" {
+		return nil, errors.New("Missing companion base URL")
+	}
+	//if companion url ends with /, remove it
+	if companionBaseURL[len(companionBaseURL)-1] == '/' {
+		companionBaseURL = companionBaseURL[:len(companionBaseURL)-1]
+	}
 	playerUrl := companionBaseURL + "/companion/youtubei/v1/player"
+	innertubeContext := prepareInnertubeContext(client, nil)
 
 	data := innertubeRequest{
 		//RequestAttributes: additionalRequestAttributes,
 		VideoID:        videoId,
+		Context:        innertubeContext, //innertubeContext,
+		ContentCheckOK: true,
+		RacyCheckOk:    true,
+		//Params:         reqParams,
+		PlaylistId: playlistId,
+
+		PlaybackContext: &playbackContext{
+			ContentPlaybackContext: contentPlaybackContext{
+				//SignatureTimestamp: str,
+				HTML5Preference: "HTML5_PREF_WANTS",
+				//Referer:            "https://www.youtube.com/watch?v=" + videoId,
+			},
+		},
 	}
 
-	resp, err := callAPI(playerUrl, data, client,companionAPIKey)
+	resp, err := callAPI(playerUrl, data, client, companionAPIKey)
 	if err != nil {
 		return nil, err
 	}
@@ -219,7 +239,7 @@ func DownloadWebpage(urlAddress string, clientInfo ClientInfo) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	return doRequest(clientInfo, req, nil,nil)
+	return doRequest(clientInfo, req, nil, nil)
 }
 
 func callAPI(urlAddress string, requestPayload innertubeRequest, clientInfo ClientInfo, companionAPIKey *string) ([]byte, error) {
@@ -229,16 +249,26 @@ func callAPI(urlAddress string, requestPayload innertubeRequest, clientInfo Clie
 	if err != nil {
 		return nil, err
 	}
-	return doRequest(clientInfo, req, &requestPayload,companionAPIKey)
+	return doRequest(clientInfo, req, &requestPayload, companionAPIKey)
 }
 
-func doRequest(clientInfo ClientInfo, req *http.Request, requestPayload *innertubeRequest,companionAPIKey *string) ([]byte, error) {
+func doRequest(clientInfo ClientInfo, req *http.Request, requestPayload *innertubeRequest, companionAPIKey *string) ([]byte, error) {
 
 	client := getHttpClient()
 	urlAddress := req.URL.String()
 
 	if strings.Contains(urlAddress, "companion") {
-		req.Header.Set("Authorization", "Bearer " + *companionAPIKey)
+		if companionAPIKey != nil {
+			req.Header.Set("Authorization", "Bearer "+*companionAPIKey)
+		} else {
+			companionIndex := strings.Index(urlAddress, "companion")
+			targetURL := "https://music.youtube.com/" + urlAddress[companionIndex+len("companion/"):]
+			u, err := url.Parse(targetURL)
+			if err != nil {
+				return nil, err
+			}
+			req.URL = u
+		}
 	}
 
 	if clientInfo.userAgent != "" {
@@ -265,16 +295,11 @@ func doRequest(clientInfo ClientInfo, req *http.Request, requestPayload *innertu
 	req.Header.Set("accept-encoding", "gzip, deflate")
 	req.Header.Set("referer", "https://music.youtube.com")
 
-	
-	
-	
-
 	resp, err := client.Do(req)
 
 	if err != nil {
 		return nil, err
 	}
-
 
 	defer resp.Body.Close()
 	// Check that the server actually sent compressed data
@@ -290,15 +315,14 @@ func doRequest(clientInfo ClientInfo, req *http.Request, requestPayload *innertu
 	respBytes, err := io.ReadAll(reader)
 
 	if resp.StatusCode != http.StatusOK {
-		fmt.Printf("API call failed with status %d \n  %s", resp.StatusCode, string(respBytes))
+		log.Printf("API call failed with status %d \n  %s", resp.StatusCode, string(respBytes))
 		if strings.Contains(urlAddress, "companion") {
 			dump, _ := httputil.DumpRequestOut(req, true)
-			fmt.Println(string(dump))
-			fmt.Println(string(respBytes))
+			log.Println(string(dump))
+			log.Println(string(respBytes))
 		}
 		return nil, errors.New(resp.Status)
 	}
-
 
 	return respBytes, nil
 }
@@ -319,11 +343,11 @@ func getHttpClient() http.Client {
 
 func prepareInnertubeContext(clientInfo ClientInfo, visitorData *string) inntertubeContext {
 	client := innertubeClient{
-	//	HL:            "en",
-	//	GL:            "US",
+		//	HL:            "en",
+		//	GL:            "US",
 		ClientName:    clientInfo.ClientName,
 		ClientVersion: clientInfo.ClientVersion,
-	//	TimeZone:      "UTC",
+		//	TimeZone:      "UTC",
 	}
 	if clientInfo.DeviceModel != "" {
 		client.DeviceModel = clientInfo.DeviceModel
@@ -349,8 +373,8 @@ func prepareInnertubeContext(clientInfo ClientInfo, visitorData *string) inntert
 	}
 	return inntertubeContext{
 		Client: client,
-		User: map[string]string{
-		//	"lockedSafetyMode": "false",
+		User:   map[string]string{
+			//	"lockedSafetyMode": "false",
 		},
 		//Request: map[string]string{
 		//	"useSsl": "true",
