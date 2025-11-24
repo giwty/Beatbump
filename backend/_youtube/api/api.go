@@ -306,7 +306,7 @@ func doRequest(clientInfo ClientInfo, req *http.Request, requestPayload *innertu
 	var reader io.ReadCloser
 	switch resp.Header.Get("Content-Encoding") {
 	case "gzip":
-		reader, err = gzip.NewReader(resp.Body)
+		reader, _ = gzip.NewReader(resp.Body)
 		defer reader.Close()
 	default:
 		reader = resp.Body
@@ -316,11 +316,11 @@ func doRequest(clientInfo ClientInfo, req *http.Request, requestPayload *innertu
 
 	if resp.StatusCode != http.StatusOK {
 		log.Printf("API call failed with status %d \n  %s", resp.StatusCode, string(respBytes))
-		if strings.Contains(urlAddress, "companion") {
+		//if strings.Contains(urlAddress, "companion") {
 			dump, _ := httputil.DumpRequestOut(req, true)
 			log.Println(string(dump))
 			log.Println(string(respBytes))
-		}
+		//}
 		return nil, errors.New(resp.Status)
 	}
 

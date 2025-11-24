@@ -5,15 +5,18 @@ import (
 	yt_api "beatbump-server/backend/_youtube/api"
 	"beatbump-server/backend/api"
 	"beatbump-server/backend/db"
+	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
-	"math/rand"
+	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
-	"time"
+	"sync/atomic"
 )
 
 type TrackInfo struct {
@@ -24,57 +27,22 @@ type TrackInfo struct {
 	ThumbnailURL string
 }
 
-func DownloadPlaylist(playlistID string, taskID int) {
-	log.Printf("Starting processing for playlist %s (Task %d)", playlistID, taskID)
-	err := db.UpdateTaskStatus(taskID, "processing")
-	if err != nil {
-		log.Printf("Failed to update task status: %v", err)
-		return
-	}
-
-	downloadPath, err := db.GetSetting("download_path")
-	if err != nil || downloadPath == "" {
-		downloadPath = "downloads"
-	}
-
-	// Get playlist name from task payload if available
-	var playlistName string
-	task, err := db.GetTask(taskID)
-	if err == nil && task.Payload != "" {
-		var payloadMap map[string]interface{}
-		if err := json.Unmarshal([]byte(task.Payload), &payloadMap); err == nil {
-			if name, ok := payloadMap["playlistName"].(string); ok {
-				playlistName = name
-			}
-		}
-	}
-
-	// Create playlist folder
-	playlistFolder := playlistID
-	if playlistName != "" {
-		playlistFolder = sanitizeFilename(playlistName)
-	}
-	fullDownloadPath := filepath.Join(downloadPath, playlistFolder)
-
-	// Ensure download directory exists
-	if _, err := os.Stat(fullDownloadPath); os.IsNotExist(err) {
-		os.MkdirAll(fullDownloadPath, 0755)
-	}
+func PopulateGroupTask(playlistID string, groupTaskID int) {
+	log.Printf("Populating songs for group task %d (Playlist %s)", groupTaskID, playlistID)
 
 	// Phase 1: Populate Tracks if not already populated
-	hasTracks, err := db.HasTaskTracks(taskID)
+	existingSongs, err := db.GetSongTasks(groupTaskID)
 	if err != nil {
-		log.Printf("Failed to check task tracks: %v", err)
-		db.UpdateTaskStatus(taskID, "failed")
+		log.Printf("Failed to get song tasks: %v", err)
+		db.UpdateGroupTaskStatus(groupTaskID, db.TaskStatusFailed)
 		return
 	}
 
-	if !hasTracks {
-		log.Printf("Phase 1: Populating tracks for task %d", taskID)
+	if len(existingSongs) == 0 {
 		tracks, err := fetchPlaylistTracks(playlistID)
 		if err != nil {
 			log.Printf("Failed to fetch playlist tracks: %v", err)
-			db.UpdateTaskStatus(taskID, "failed")
+			db.UpdateGroupTaskStatus(groupTaskID, db.TaskStatusFailed)
 			return
 		}
 
@@ -82,89 +50,14 @@ func DownloadPlaylist(playlistID string, taskID int) {
 			if track.VideoID == "" {
 				continue
 			}
-			err := db.AddTaskTrack(taskID, track.VideoID, track.Title, track.Artist, track.Album, track.ThumbnailURL)
+			err := db.AddSongTask(groupTaskID, track.VideoID, track.Title, track.Artist, track.Album, track.ThumbnailURL)
 			if err != nil {
-				log.Printf("Failed to add track %s to task: %v", track.Title, err)
+				log.Printf("Failed to add song %s to task: %v", track.Title, err)
 			}
 		}
-		log.Printf("Phase 1 Complete: Populated %d tracks", len(tracks))
-	}
-
-	// Phase 2: Process Downloads
-	// Fetch all tracks again to get their current status
-	existingTracks, err := db.GetTaskTracks(taskID)
-	if err != nil {
-		log.Printf("Failed to get task tracks: %v", err)
-		db.UpdateTaskStatus(taskID, "failed")
-		return
-	}
-
-	log.Printf("Phase 2: Processing %d tracks for task %d", len(existingTracks), taskID)
-
-	allCompleted := true
-	for _, track := range existingTracks {
-		// Check if task is paused
-		currentTask, err := db.GetTask(taskID)
-		if err != nil {
-			log.Printf("Failed to get task status: %v", err)
-			return
-		}
-		if currentTask.Status == "paused" {
-			log.Printf("Task %d is paused, stopping download", taskID)
-			break
-		}
-
-		// Skip if already completed
-		if track.Status == "completed" {
-			continue
-		}
-
-		// Update status to in_progress
-		db.UpdateTaskTrackStatus(taskID, track.VideoID, "in_progress")
-
-		trackInfo := TrackInfo{
-			VideoID: track.VideoID,
-			Title:   track.Title,
-			Artist:  track.Artist,
-			Album:   track.Album,
-		}
-
-		relativePath, err := downloadTrack(trackInfo, fullDownloadPath, playlistFolder)
-		if err != nil {
-			log.Printf("Failed to download track %s: %v", track.Title, err)
-			db.UpdateTaskTrackStatus(taskID, track.VideoID, "failed")
-			allCompleted = false
-			// Continue to next track
-		} else {
-			db.MarkTrackCompleted(taskID, track.VideoID, relativePath)
-		}
-
-		// Sleep to avoid rate limiting (2-8 seconds)
-		sleepDuration := time.Duration(rand.Intn(7)+2) * time.Second
-		log.Printf("Sleeping for %v...", sleepDuration)
-		time.Sleep(sleepDuration)
-	}
-
-	if allCompleted {
-		db.UpdateTaskStatus(taskID, "completed")
-		log.Printf("Completed download for playlist %s", playlistID)
+		log.Printf("Populated %d songs for group task %d", len(tracks), groupTaskID)
 	} else {
-		// Mark as completed even if some failed, so it doesn't get stuck in processing loop forever.
-		// Users can retry later if we implement a retry mechanism.
-		db.UpdateTaskStatus(taskID, "completed")
-		log.Printf("Finished processing playlist %s (some tracks may have failed)", playlistID)
-	}
-
-	// Generate Metadata files (M3U and NFO)
-	// Fetch fresh tracks to ensure we have file paths for completed ones
-	finalTracks, err := db.GetTaskTracks(taskID)
-	if err == nil {
-		if err := generateM3U(playlistName, finalTracks, fullDownloadPath); err != nil {
-			log.Printf("Failed to generate M3U: %v", err)
-		}
-		if err := generateNFO(playlistName, fullDownloadPath); err != nil {
-			log.Printf("Failed to generate NFO: %v", err)
-		}
+		log.Printf("Group task %d already has %d songs", groupTaskID, len(existingSongs))
 	}
 }
 
@@ -214,12 +107,11 @@ func fetchPlaylistTracks(playlistID string) ([]TrackInfo, error) {
 	return tracks, nil
 }
 
-func downloadTrack(track TrackInfo, downloadPath, playlistFolder string) (string, error) {
+func downloadTrack(track TrackInfo, downloadPath, playlistFolder, companionBaseURL string, companionAPIKey *string) (string, error) {
 	log.Printf("Downloading %s - %s", track.Artist, track.Title)
 
 	// Get Stream URL
-	// Use yt_api.Player instead of api.Player because api is now the beatbump api package
-	responseBytes, err := yt_api.Player(track.VideoID, "", yt_api.IOS_MUSIC, nil, "", nil)
+	responseBytes, err := yt_api.Player(track.VideoID, "", yt_api.IOS_MUSIC, nil, companionBaseURL, companionAPIKey)
 	if err != nil {
 		return "", err
 	}
@@ -235,14 +127,15 @@ func downloadTrack(track TrackInfo, downloadPath, playlistFolder string) (string
 	}
 
 	var streamUrl string
+	var contentLength int64
 	// Find best audio format
-	// Prefer high bitrate audio
 	bestBitrate := 0
 	for _, format := range playerResponse.StreamingData.AdaptiveFormats {
 		if strings.HasPrefix(format.MimeType, "audio") {
 			if format.Bitrate > bestBitrate {
 				bestBitrate = format.Bitrate
 				streamUrl = format.URL
+				contentLength, _ = strconv.ParseInt(format.ContentLength, 10, 64)
 			}
 		}
 	}
@@ -252,25 +145,153 @@ func downloadTrack(track TrackInfo, downloadPath, playlistFolder string) (string
 	}
 
 	// Sanitize filename
-	filename := fmt.Sprintf("%s - %s.mp3", track.Artist, track.Title)
+	filename := fmt.Sprintf("%s - %s.m4a", track.Artist, track.Title)
 	filename = sanitizeFilename(filename)
 	filePath := filepath.Join(downloadPath, filename)
 
-	// Use ffmpeg to download and convert
-	cmd := exec.Command("ffmpeg", "-y", "-i", streamUrl,
-		"-metadata", "title="+track.Title,
-		"-metadata", "artist="+track.Artist,
-		"-metadata", "album="+track.Album,
-		"-c:a", "libmp3lame", "-q:a", "2",
-		filePath)
-
-	output, err := cmd.CombinedOutput()
+	// Download directly to file
+	out, err := os.Create(filePath)
 	if err != nil {
-		return "", fmt.Errorf("ffmpeg error: %v, output: %s", err, string(output))
+		return "", fmt.Errorf("failed to create file: %v", err)
+	}
+	defer out.Close()
+
+	req, err := http.NewRequest(http.MethodGet, streamUrl, nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to download stream: %v", err)
+	}
+
+	r, w := io.Pipe()
+
+	if contentLength == 0 {
+		resp, err := http.Get(streamUrl)
+		if err != nil {
+			return "", fmt.Errorf("failed to download stream: %v", err)
+		}
+
+		go func() {
+			defer resp.Body.Close()
+			_, err := io.Copy(w, resp.Body)
+			if err == nil {
+				w.Close()
+			} else {
+				w.CloseWithError(err) //nolint:errcheck
+			}
+		}()
+	} else {
+		// we have length information, let's download by chunks!
+		downloadChunked(req, w, contentLength)
+	}
+	defer r.Close()
+	_, err = io.Copy(out, r)
+	if err != nil {
+		return "", fmt.Errorf("failed to save stream: %v", err)
 	}
 
 	// Return relative path including playlist folder
 	return filepath.Join(playlistFolder, filename), nil
+}
+
+const (
+	Size1Kb  = 1024
+	Size1Mb  = Size1Kb * 1024
+	Size10Mb = Size1Mb * 10
+)
+
+func downloadChunked(req *http.Request, w *io.PipeWriter, contentLength int64) {
+	chunks := getChunks(contentLength, Size10Mb)
+
+	currentChunk := atomic.Uint32{}
+
+	for i := 0; i < 5; i++ {
+		go func() {
+			for {
+				chunkIndex := int(currentChunk.Add(1)) - 1
+				if chunkIndex >= len(chunks) {
+					// no more chunks
+					return
+				}
+
+				chunk := &chunks[chunkIndex]
+				err := downloadChunk(req.Clone(context.Background()), chunk)
+				close(chunk.data)
+
+				if err != nil {
+					w.CloseWithError(err)
+					return
+				}
+			}
+		}()
+	}
+
+	go func() {
+		// copy chunks into the PipeWriter
+		for i := 0; i < len(chunks); i++ {
+			select {
+			case data := <-chunks[i].data:
+				_, err := io.Copy(w, bytes.NewBuffer(data))
+				if err != nil {
+					w.CloseWithError(err)
+				}
+			}
+		}
+
+		// everything succeeded
+		w.Close()
+	}()
+}
+
+func downloadChunk(req *http.Request, chunk *chunk) error {
+	q := req.URL.Query()
+	q.Set("range", fmt.Sprintf("%d-%d", chunk.start, chunk.end))
+	req.URL.RawQuery = q.Encode()
+
+	resp, err := http.Get(req.URL.String())
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+
+	expected := int(chunk.end-chunk.start) + 1
+	data, err := io.ReadAll(resp.Body)
+	n := len(data)
+
+	if err != nil {
+		return err
+	}
+
+	if n != expected {
+		return fmt.Errorf("chunk at offset %d has invalid size: expected=%d actual=%d", chunk.start, expected, n)
+	}
+
+	chunk.data <- data
+
+	return nil
+}
+
+type chunk struct {
+	start int64
+	end   int64
+	data  chan []byte
+}
+
+func getChunks(totalSize, chunkSize int64) []chunk {
+	var chunks []chunk
+
+	for start := int64(0); start < totalSize; start += chunkSize {
+		end := chunkSize + start - 1
+		if end > totalSize-1 {
+			end = totalSize - 1
+		}
+
+		chunks = append(chunks, chunk{start, end, make(chan []byte, 1)})
+	}
+
+	return chunks
 }
 
 func sanitizeFilename(name string) string {
@@ -282,8 +303,8 @@ func sanitizeFilename(name string) string {
 	}, name)
 }
 
-func generateM3U(playlistName string, tracks []db.TaskTrack, outputDir string) error {
-	filename := filepath.Join(outputDir, "playlist.m3u")
+func generateM3U(playlistName string, tracks []db.SongTask, outputDir string) error {
+	filename := filepath.Join(outputDir, "playlist.m3u8")
 	f, err := os.Create(filename)
 	if err != nil {
 		return err
@@ -297,7 +318,7 @@ func generateM3U(playlistName string, tracks []db.TaskTrack, outputDir string) e
 
 	for _, track := range tracks {
 		if track.Status == "completed" && track.FilePath != "" {
-			// FilePath in DB is relative to downloads root (e.g. "Playlist/Song.mp3")
+			// FilePath in DB is relative to downloads root (e.g. "Playlist/Song.m4a")
 			// We need just the filename for the M3U since it's in the same folder
 			baseName := filepath.Base(track.FilePath)
 
@@ -334,4 +355,85 @@ func generateNFO(playlistName string, outputDir string) error {
 
 	_, err = f.WriteString(content)
 	return err
+}
+
+func DownloadSingleTrack(track *db.SongTask) {
+	// Update status to in_progress
+	db.UpdateSongTaskStatus(int(track.GroupTaskID), track.VideoID, db.TaskStatusProcessing)
+
+	// Fetch parent group task to get keys and playlist name
+	groupTask, err := db.GetGroupTask(int(track.GroupTaskID))
+	if err != nil {
+		log.Printf("Failed to get group task %d: %v", track.GroupTaskID, err)
+		db.UpdateSongTaskStatus(int(track.GroupTaskID), track.VideoID, db.TaskStatusFailed)
+		return
+	}
+
+	fullDownloadPath, playlistFolder, playlistName := resolveDownloadDirectory(groupTask)
+
+	// Ensure download directory exists
+	if _, err := os.Stat(fullDownloadPath); os.IsNotExist(err) {
+		os.MkdirAll(fullDownloadPath, 0755)
+	}
+
+	trackInfo := TrackInfo{
+		VideoID: track.VideoID,
+		Title:   track.Title,
+		Artist:  track.Artist,
+		Album:   track.Album,
+	}
+
+	relativePath, err := downloadTrack(trackInfo, fullDownloadPath, playlistFolder, groupTask.CompanionBaseURL, &groupTask.CompanionAPIKey)
+	if err != nil {
+		log.Printf("Failed to download track %s: %v", track.Title, err)
+		db.UpdateSongTaskStatus(int(track.GroupTaskID), track.VideoID, db.TaskStatusFailed)
+	} else {
+		finalizeTask(track, relativePath, playlistName, fullDownloadPath)
+	}
+}
+
+func resolveDownloadDirectory(groupTask *db.GroupTask) (string, string, string) {
+	downloadPath, err := db.GetSetting("download_path")
+	if err != nil || downloadPath == "" {
+		downloadPath = "downloads"
+	}
+
+	playlistName := "Unknown Playlist"
+	if groupTask.Type == db.TaskTypeOngoingDownload {
+		// Use safe format for folder name (no colons)
+		playlistName = fmt.Sprintf("Songs %s", groupTask.CreatedAt.Format("2006-01-02_15-04"))
+	} else if groupTask.Payload != "" {
+		var payloadMap map[string]interface{}
+		if err := json.Unmarshal([]byte(groupTask.Payload), &payloadMap); err == nil {
+			if name, ok := payloadMap["playlistName"].(string); ok {
+				playlistName = name
+			}
+		}
+	}
+
+	playlistFolder := sanitizeFilename(playlistName)
+	fullDownloadPath := filepath.Join(downloadPath, playlistFolder)
+	return fullDownloadPath, playlistFolder, playlistName
+}
+
+func finalizeTask(track *db.SongTask, relativePath, playlistName, fullDownloadPath string) {
+	db.MarkSongTaskCompleted(int(track.GroupTaskID), track.VideoID, relativePath)
+
+	// Check if all songs in the group are completed
+	completed, err := db.CheckGroupCompletion(int(track.GroupTaskID))
+	if err == nil && completed {
+		log.Printf("All songs completed for group task %d. Finalizing...", track.GroupTaskID)
+		db.UpdateGroupTaskStatus(int(track.GroupTaskID), db.TaskStatusCompleted)
+
+		// Generate Metadata
+		finalSongs, err := db.GetSongTasks(int(track.GroupTaskID))
+		if err == nil {
+			if err := generateM3U(playlistName, finalSongs, fullDownloadPath); err != nil {
+				log.Printf("Failed to generate M3U: %v", err)
+			}
+			if err := generateNFO(playlistName, fullDownloadPath); err != nil {
+				log.Printf("Failed to generate NFO: %v", err)
+			}
+		}
+	}
 }

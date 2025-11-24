@@ -50,7 +50,7 @@ func main() {
 	e.POST("/api/v1/downloads/:taskId/resume", api.ResumeTaskHandler)
 	e.POST("/api/v1/downloads/:taskId/retry", api.RetryTaskHandler)
 	e.GET("/api/v1/settings", api.GetSettingsHandler)
-	e.GET("/api/v1/settings", api.UpdateSettingsHandler)
+	e.POST("/api/v1/settings", api.UpdateSettingsHandler)
 
 	e.Logger.Fatal(e.Start(":8080"))
 }

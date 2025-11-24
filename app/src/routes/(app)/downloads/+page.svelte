@@ -1,19 +1,19 @@
 <script lang="ts">
 	import Header from "$lib/components/Layouts/Header.svelte";
-	import { onMount, onDestroy } from "svelte";
+	import { onMount } from "svelte";
 	import { browser } from "$app/environment";
 	import { APIClient } from "$lib/api";
+	import list from "$lib/stores/list";
 
 	let tasks: any[] = [];
 	let expandedTaskID: number | null = null;
 	let taskTracks: any[] = [];
-	let interval: any;
 
 	const fetchTasks = async () => {
 		if (!browser) return;
 		const res = await APIClient.fetch("/api/v1/downloads");
 		if (res.ok) {
-			tasks = await res.json();
+			tasks = (await res.json()) || [];
 			// If a task is expanded, refresh its tracks too
 			if (expandedTaskID) {
 				fetchTaskTracks(expandedTaskID);
@@ -43,6 +43,13 @@
 		fetchTasks();
 	};
 
+	const playTrack = async (track: any) => {
+		await list.initAutoMixSession({
+			videoId: track.VideoID,
+			keyId: 0,
+		});
+	};
+
 	const resumeTask = async (taskId: number) => {
 		await APIClient.post(`/api/v1/downloads/${taskId}/resume`, {});
 		fetchTasks();
@@ -55,11 +62,6 @@
 
 	onMount(() => {
 		fetchTasks();
-		interval = setInterval(fetchTasks, 2000);
-	});
-
-	onDestroy(() => {
-		clearInterval(interval);
 	});
 </script>
 
@@ -171,6 +173,12 @@
 										<div class="info">
 											<span class="title">{track.Title}</span>
 											<span class="artist">{track.Artist}</span>
+										</div>
+										<div>
+											<button
+												class="action-btn"
+												on:click={() => playTrack(track)}>Play</button
+											>
 										</div>
 										<div
 											class="status small"

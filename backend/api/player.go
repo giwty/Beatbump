@@ -7,8 +7,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/labstack/echo/v4"
 )
@@ -57,6 +59,7 @@ func PlayerEndpointHandler(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, "Playability status is not OK: "+playerResponse.PlayabilityStatus.Status)
 	}
 
+	//258/251/22/256/140/250/18/249/139
 	for i := 0; i < len(playerResponse.StreamingData.AdaptiveFormats); i++ {
 		format := &playerResponse.StreamingData.AdaptiveFormats[i]
 		/*if !strings.Contains(format.MimeType, "audio") {
@@ -72,15 +75,65 @@ func PlayerEndpointHandler(c echo.Context) error {
 		enabled, _ := db.GetSetting("ongoing_listening_enabled")
 		if enabled == "true" {
 			// Check if task exists
-			task, err := db.GetTaskByReferenceID("ongoing_listening")
-			if err != nil || task == nil {
+			var refID string
+			var playlistName string
+			var task *db.GroupTask
+
+			// Treat "RD" (Radio) playlists as part of the ongoing session, not as a separate playlist
+			// Also handle "undefined" string which can come from frontend
+			if playlistId != "" && playlistId != "undefined" && 
+			!(strings.HasPrefix(playlistId, "RDEM") || strings.HasPrefix(playlistId, "RDAMVM") || strings.HasPrefix(playlistId, "RDAT")) {
+				refID = "ongoing:playlist:" + playlistId
+				// Try to get task to see if we already have the name
+				t, err := db.GetGroupTaskByReferenceID(refID)
+				if err == nil && t != nil {
+					task = t
+				} else {
+					// Task doesn't exist, fetch playlist name
+					pl, err := GetPlaylist(playlistId, "", "")
+					if err == nil {
+						if title, ok := pl.Header["title"].([]string); ok && len(title) > 0 {
+							playlistName = title[0]
+						} else {
+							playlistName = "Playlist " + playlistId
+						}
+					} else {
+						playlistName = "Playlist " + playlistId
+					}
+				}
+			} else {
+				// Try to find an active session task (updated within last 30 mins)
+				log.Println("Checking for active session task...")
+				activeTask, err := db.GetActiveSessionGroupTask(30 * time.Minute)
+				if err == nil && activeTask != nil {
+					log.Printf("Found active session task: %d (Ref: %s)", activeTask.ID, activeTask.ReferenceID)
+					task = activeTask
+					refID = task.ReferenceID
+				} else {
+					if err != nil {
+						log.Printf("Error getting active session task: %v", err)
+					} else {
+						log.Println("No active session task found.")
+					}
+					// Create new session
+					timestamp := time.Now().Format("2006-01-02 15:04")
+					refID = fmt.Sprintf("ongoing:songs:%d", time.Now().Unix())
+					playlistName = fmt.Sprintf("Listening Session %s", timestamp)
+					log.Printf("Creating new session: %s (Ref: %s)", playlistName, refID)
+				}
+			}
+
+			if task == nil {
 				// Create task
-				payload := `{"playlistName": "Ongoing Listening"}`
-				db.AddTask("ongoing_download", "ongoing_listening", payload)
-				task, _ = db.GetTaskByReferenceID("ongoing_listening")
+				payload := fmt.Sprintf(`{"playlistName": "%s"}`, playlistName)
+				db.AddGroupTask(db.TaskTypeOngoingDownload, refID, payload, companionAPIKey, companionBaseURL, db.TaskSourceSystem)
+				task, _ = db.GetGroupTaskByReferenceID(refID)
 			}
 
 			if task != nil {
+				// Ensure task has latest companion info
+				db.UpdateGroupTaskCompanionInfo(int(task.ID), companionAPIKey, companionBaseURL)
+
 				// Add track
 				details := playerResponse.VideoDetails
 				title := details.Title
@@ -90,11 +143,11 @@ func PlayerEndpointHandler(c echo.Context) error {
 					thumbnail = details.Thumbnail.Thumbnails[len(details.Thumbnail.Thumbnails)-1].URL
 				}
 
-				db.AddTaskTrack(task.ID, videoId, title, artist, "", thumbnail)
+				db.AddSongTask(int(task.ID), videoId, title, artist, "", thumbnail)
 
 				// Ensure task is pending so worker picks it up
-				if task.Status != "processing" {
-					db.UpdateTaskStatus(task.ID, "pending")
+				if task.Status != db.TaskStatusProcessing {
+					db.UpdateGroupTaskStatus(int(task.ID), db.TaskStatusPending)
 				}
 			}
 		}

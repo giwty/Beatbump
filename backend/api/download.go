@@ -31,11 +31,13 @@ func DownloadPlaylistHandler(c echo.Context) error {
 		payload = fmt.Sprintf(`{"playlistName": "%s"}`, playlistName)
 	}
 
-	err := db.AddTask("playlist_download", playlistID, payload)
+	companionAPIKey := c.Request().Header.Get("x-companion-api-key")
+	companionBaseURL := c.Request().Header.Get("x-companion-base-url")
+
+	err := db.AddGroupTask("playlist_download", playlistID, payload, companionAPIKey, companionBaseURL, "user")
 	if err != nil {
-		c.Logger().Errorf("Failed to add task: %v", err)
-		if err.Error() == "UNIQUE constraint failed: tasks.reference_id" ||
-			(len(err.Error()) > 24 && err.Error()[:24] == "UNIQUE constraint failed") {
+		c.Logger().Errorf("Failed to add group task: %v", err)
+		if len(err.Error()) > 24 && err.Error()[:24] == "UNIQUE constraint failed" {
 			return c.JSON(http.StatusConflict, map[string]string{"status": "already_queued", "message": "Task already queued"})
 		}
 		return c.String(http.StatusInternalServerError, "Failed to create task")
@@ -45,17 +47,14 @@ func DownloadPlaylistHandler(c echo.Context) error {
 }
 
 func GetDownloadsHandler(c echo.Context) error {
-	// Ensure ongoing listening task exists
-	task, err := db.GetTaskByReferenceID("ongoing_listening")
-	if err != nil || task == nil {
-		payload := `{"playlistName": "Ongoing Listening"}`
-		db.AddTask("ongoing_download", "ongoing_listening", payload)
-	}
-
-	tasks, err := db.GetAllTasksWithStats()
+	tasks, err := db.GetAllGroupTasks()
 	if err != nil {
-		c.Logger().Errorf("Failed to fetch tasks: %v", err)
+		c.Logger().Errorf("Failed to fetch group tasks: %v", err)
 		return c.String(http.StatusInternalServerError, "Failed to fetch tasks")
+	}
+	// Return empty array if nil to avoid null in JSON
+	if tasks == nil {
+		tasks = []db.GroupTask{}
 	}
 	c.Logger().Infof("Returning %d tasks", len(tasks))
 	return c.JSON(http.StatusOK, tasks)
@@ -68,12 +67,15 @@ func GetTaskTracksHandler(c echo.Context) error {
 		return c.String(http.StatusBadRequest, "Invalid task ID")
 	}
 
-	tracks, err := db.GetTaskTracks(taskID)
+	songs, err := db.GetSongTasks(taskID)
 	if err != nil {
-		c.Logger().Errorf("Failed to fetch task tracks: %v", err)
-		return c.String(http.StatusInternalServerError, "Failed to fetch task tracks")
+		c.Logger().Errorf("Failed to fetch song tasks: %v", err)
+		return c.String(http.StatusInternalServerError, "Failed to fetch song tasks")
 	}
-	return c.JSON(http.StatusOK, tracks)
+	if songs == nil {
+		songs = []db.SongTask{}
+	}
+	return c.JSON(http.StatusOK, songs)
 }
 
 func GetSettingsHandler(c echo.Context) error {
@@ -86,6 +88,13 @@ func GetSettingsHandler(c echo.Context) error {
 }
 
 func UpdateSettingsHandler(c echo.Context) error {
+	companionAPIKey := c.Request().Header.Get("x-companion-api-key")
+	companionBaseURL := c.Request().Header.Get("x-companion-base-url")
+
+	if companionBaseURL == "" || companionAPIKey == "" {
+		return c.String(http.StatusBadRequest, "Missing companion API configuration headers")
+	}
+
 	var req SettingsRequest
 	if err := c.Bind(&req); err != nil {
 		return c.String(http.StatusBadRequest, "Invalid request")
@@ -115,7 +124,7 @@ func PauseTaskHandler(c echo.Context) error {
 		return c.String(http.StatusBadRequest, "Invalid task ID")
 	}
 
-	err = db.UpdateTaskStatus(taskID, "paused")
+	err = db.UpdateGroupTaskStatus(taskID, "paused")
 	if err != nil {
 		return c.String(http.StatusInternalServerError, "Failed to pause task")
 	}
@@ -129,7 +138,7 @@ func ResumeTaskHandler(c echo.Context) error {
 		return c.String(http.StatusBadRequest, "Invalid task ID")
 	}
 
-	err = db.UpdateTaskStatus(taskID, "pending")
+	err = db.UpdateGroupTaskStatus(taskID, "pending")
 	if err != nil {
 		return c.String(http.StatusInternalServerError, "Failed to resume task")
 	}
@@ -143,7 +152,7 @@ func RetryTaskHandler(c echo.Context) error {
 		return c.String(http.StatusBadRequest, "Invalid task ID")
 	}
 
-	err = db.RetryTask(taskID)
+	err = db.RetryGroupTask(taskID)
 	if err != nil {
 		return c.String(http.StatusInternalServerError, "Failed to retry task")
 	}
