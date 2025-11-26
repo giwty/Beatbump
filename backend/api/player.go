@@ -71,18 +71,27 @@ func PlayerEndpointHandler(c echo.Context) error {
 	}
 
 	// Ongoing Listening Logic
+	handleTrackdownloadTask(playlistId, companionAPIKey, companionBaseURL, playerResponse, videoId)
+
+	return c.JSON(http.StatusOK, playerResponse)
+}
+
+func handleTrackdownloadTask(playlistId string, companionAPIKey string, companionBaseURL string, playerResponse _youtube.PlayerResponse, videoId string) {
 	go func() {
-		enabled, _ := db.GetSetting("ongoing_listening_enabled")
+		enabled, _ := db.GetSetting(db.OngoingListeningEnabledSetting)
 		if enabled == "true" {
 			// Check if task exists
 			var refID string
 			var playlistName string
 			var task *db.GroupTask
 
+			if strings.HasPrefix(playlistId, "RDCL") {
+				playlistId = "VL" + playlistId
+			}
 			// Treat "RD" (Radio) playlists as part of the ongoing session, not as a separate playlist
 			// Also handle "undefined" string which can come from frontend
-			if playlistId != "" && playlistId != "undefined" && 
-			!(strings.HasPrefix(playlistId, "RDEM") || strings.HasPrefix(playlistId, "RDAMVM") || strings.HasPrefix(playlistId, "RDAT")) {
+			if playlistId != "" && playlistId != "undefined" &&
+				!(strings.HasPrefix(playlistId, "RDEM") || strings.HasPrefix(playlistId, "RDAMVM") || strings.HasPrefix(playlistId, "RDAT")) {
 				refID = "ongoing:playlist:" + playlistId
 				// Try to get task to see if we already have the name
 				t, err := db.GetGroupTaskByReferenceID(refID)
@@ -125,15 +134,11 @@ func PlayerEndpointHandler(c echo.Context) error {
 
 			if task == nil {
 				// Create task
-				payload := fmt.Sprintf(`{"playlistName": "%s"}`, playlistName)
-				db.AddGroupTask(db.TaskTypeOngoingDownload, refID, payload, companionAPIKey, companionBaseURL, db.TaskSourceSystem)
+				db.AddGroupTask(db.TaskTypeOngoingDownload, refID, playlistName, companionAPIKey, companionBaseURL, db.TaskSourceSystem)
 				task, _ = db.GetGroupTaskByReferenceID(refID)
 			}
 
 			if task != nil {
-				// Ensure task has latest companion info
-				db.UpdateGroupTaskCompanionInfo(int(task.ID), companionAPIKey, companionBaseURL)
-
 				// Add track
 				details := playerResponse.VideoDetails
 				title := details.Title
@@ -144,16 +149,9 @@ func PlayerEndpointHandler(c echo.Context) error {
 				}
 
 				db.AddSongTask(int(task.ID), videoId, title, artist, "", thumbnail)
-
-				// Ensure task is pending so worker picks it up
-				if task.Status != db.TaskStatusProcessing {
-					db.UpdateGroupTaskStatus(int(task.ID), db.TaskStatusPending)
-				}
 			}
 		}
 	}()
-
-	return c.JSON(http.StatusOK, playerResponse)
 }
 
 func callPlayerAPI(clientInfo api.ClientInfo, videoId string, playlistId string, companionBaseURL string, companionAPIKey *string) ([]byte, error) {

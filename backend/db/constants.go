@@ -20,3 +20,9 @@ const (
 	TaskSourceUser   = "user"
 	TaskSourceSystem = "system"
 )
+
+// settings 
+const (
+	OngoingListeningEnabledSetting = "ongoing_listening_enabled"
+	DownloadPathSetting = "download_path"
+)

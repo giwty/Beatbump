@@ -411,7 +411,7 @@ export class ListService {
                             : data.results[0]
                                 ? data.results[0]?.videoId
                                 : undefined,
-                    item?.playlistId,
+                    item?.playlistId || playlistId,
                     config?.playerParams,
                 );
                 syncTabs.updateSessionList(state);

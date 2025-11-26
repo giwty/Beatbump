@@ -209,9 +209,13 @@
 							placeholder="downloads"
 							on:change={async (e) => {
 								const value = e.currentTarget.value;
-								await APIClient.post("/api/v1/settings", {
+								const res = await APIClient.post("/api/v1/settings", {
 									downloadPath: value,
 								});
+								if (!res.ok) {
+									const data = await res.json();
+									alert(data.error || "Failed to update download path");
+								}
 							}}
 						/>
 					</div>
@@ -227,9 +231,14 @@
 					id="ongoing-listening"
 					on:change={async (e) => {
 						const checked = e.currentTarget.checked;
-						await APIClient.post("/api/v1/settings", {
+						const res = await APIClient.post("/api/v1/settings", {
 							ongoingListeningEnabled: checked ? "true" : "false",
 						});
+						if (!res.ok) {
+							const data = await res.json();
+							alert(data.error || "Failed to update setting");
+							e.currentTarget.checked = !checked; // Revert
+						}
 					}}
 				/>
 				<label

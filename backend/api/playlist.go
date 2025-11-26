@@ -61,6 +61,7 @@ func PlaylistEndpointHandler(c echo.Context) error {
 func GetPlaylist(browseID string, ctoken string, itct string) (PlaylistAPIResponse, error) {
 	var responseBytes []byte
 	var err error
+
 	if ctoken != "" && itct != "" {
 		responseBytes, err = api.Browse(browseID, api.PageType_MusicPageTypePlaylist, "", nil, &itct, &ctoken, api.WebMusic)
 	} else {

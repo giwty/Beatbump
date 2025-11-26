@@ -1,12 +1,8 @@
 package db
 
 import (
-	"encoding/json"
-	"fmt"
 	"log"
-	"strings"
 	"time"
-
 	"github.com/glebarez/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -22,7 +18,7 @@ type GroupTask struct {
 	Type             string
 	ReferenceID      string `gorm:"uniqueIndex"`
 	Status           string
-	Payload          string
+	PlaylistName     string
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
 	CompanionAPIKey  string
@@ -30,10 +26,9 @@ type GroupTask struct {
 	Source           string `gorm:"default:user"`
 
 	// Ignored fields for GORM, used for UI
-	PlaylistName string `gorm:"-"`
-	TotalTracks  int    `gorm:"-"`
-	Processed    int    `gorm:"-"`
-	Failed       int    `gorm:"-"`
+	TotalTracks int `gorm:"-"`
+	Processed   int `gorm:"-"`
+	Failed      int `gorm:"-"`
 }
 
 type SongTask struct {
@@ -80,12 +75,12 @@ func InitDB() {
 
 // Group Task Functions
 
-func AddGroupTask(taskType, referenceID, payload, companionAPIKey, companionBaseURL, source string) error {
+func AddGroupTask(taskType, referenceID, playlistName, companionAPIKey, companionBaseURL, source string) error {
 	task := GroupTask{
 		Type:             taskType,
 		ReferenceID:      referenceID,
 		Status:           TaskStatusPending,
-		Payload:          payload,
+		PlaylistName:     playlistName,
 		CompanionAPIKey:  companionAPIKey,
 		CompanionBaseURL: companionBaseURL,
 		Source:           source,
@@ -181,17 +176,6 @@ func GetAllGroupTasks() ([]GroupTask, error) {
 			t.Failed = c.Failed
 		}
 
-		// Post-process for PlaylistName
-		if t.Type == TaskTypeOngoingDownload && strings.HasPrefix(t.ReferenceID, "ongoing:songs:") {
-			t.PlaylistName = fmt.Sprintf("Songs %s", t.CreatedAt.Format("2006-01-02 15:04"))
-		} else if t.Payload != "" {
-			var payloadMap map[string]interface{}
-			if err := json.Unmarshal([]byte(t.Payload), &payloadMap); err == nil {
-				if name, ok := payloadMap["playlistName"].(string); ok {
-					t.PlaylistName = name
-				}
-			}
-		}
 	}
 
 	return tasks, nil

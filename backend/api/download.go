@@ -4,6 +4,7 @@ import (
 	"beatbump-server/backend/db"
 	"fmt"
 	"net/http"
+	"os"
 	"strconv"
 
 	"github.com/labstack/echo/v4"
@@ -26,15 +27,14 @@ func DownloadPlaylistHandler(c echo.Context) error {
 		return c.String(http.StatusBadRequest, "Playlist ID is required")
 	}
 
-	payload := ""
-	if playlistName != "" {
-		payload = fmt.Sprintf(`{"playlistName": "%s"}`, playlistName)
-	}
-
 	companionAPIKey := c.Request().Header.Get("x-companion-api-key")
 	companionBaseURL := c.Request().Header.Get("x-companion-base-url")
 
-	err := db.AddGroupTask("playlist_download", playlistID, payload, companionAPIKey, companionBaseURL, "user")
+	if companionAPIKey == "" || companionBaseURL == "" {
+		return c.String(http.StatusBadRequest, "Missing companion API configuration headers")
+	}
+
+	err := db.AddGroupTask(db.TaskTypePlaylistDownload, playlistID, playlistName, companionAPIKey, companionBaseURL, "user")
 	if err != nil {
 		c.Logger().Errorf("Failed to add group task: %v", err)
 		if len(err.Error()) > 24 && err.Error()[:24] == "UNIQUE constraint failed" {
@@ -79,8 +79,8 @@ func GetTaskTracksHandler(c echo.Context) error {
 }
 
 func GetSettingsHandler(c echo.Context) error {
-	downloadPath, _ := db.GetSetting("download_path")
-	ongoingListeningEnabled, _ := db.GetSetting("ongoing_listening_enabled")
+	downloadPath, _ := db.GetSetting(db.DownloadPathSetting)
+	ongoingListeningEnabled, _ := db.GetSetting(db.OngoingListeningEnabledSetting)
 	return c.JSON(http.StatusOK, map[string]string{
 		"downloadPath":            downloadPath,
 		"ongoingListeningEnabled": ongoingListeningEnabled,
@@ -101,14 +101,44 @@ func UpdateSettingsHandler(c echo.Context) error {
 	}
 
 	if req.DownloadPath != "" {
-		err := db.SetSetting("download_path", req.DownloadPath)
+		// Validate that the path exists and is a directory
+		info, err := os.Stat(req.DownloadPath)
+		if err != nil {
+			if os.IsNotExist(err) {
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": "Directory does not exist"})
+			}
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to validate directory"})
+		}
+		if !info.IsDir() {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Path is not a directory"})
+		}
+
+		err = db.SetSetting(db.DownloadPathSetting, req.DownloadPath)
 		if err != nil {
 			return c.String(http.StatusInternalServerError, "Failed to update download path")
 		}
 	}
 
 	if req.OngoingListeningEnabled != "" {
-		err := db.SetSetting("ongoing_listening_enabled", req.OngoingListeningEnabled)
+		if req.OngoingListeningEnabled == "true" {
+			// Ensure we have a valid download path before enabling
+			currentPath, _ := db.GetSetting(db.DownloadPathSetting)
+			// If we are updating both, use the new one, otherwise use the stored one
+			if req.DownloadPath != "" {
+				currentPath = req.DownloadPath
+			}
+
+			if currentPath == "" {
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": "Download path must be set first"})
+			}
+
+			info, err := os.Stat(currentPath)
+			if err != nil || !info.IsDir() {
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": "Valid download path required"})
+			}
+		}
+
+		err := db.SetSetting(db.OngoingListeningEnabledSetting, req.OngoingListeningEnabled)
 		if err != nil {
 			return c.String(http.StatusInternalServerError, "Failed to update ongoing listening setting")
 		}

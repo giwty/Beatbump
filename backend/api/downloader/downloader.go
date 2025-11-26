@@ -5,6 +5,7 @@ import (
 	yt_api "beatbump-server/backend/_youtube/api"
 	"beatbump-server/backend/api"
 	"beatbump-server/backend/db"
+	"beatbump-server/backend/utils"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -227,12 +228,10 @@ func downloadChunked(req *http.Request, w *io.PipeWriter, contentLength int64) {
 	go func() {
 		// copy chunks into the PipeWriter
 		for i := 0; i < len(chunks); i++ {
-			select {
-			case data := <-chunks[i].data:
-				_, err := io.Copy(w, bytes.NewBuffer(data))
-				if err != nil {
-					w.CloseWithError(err)
-				}
+			data := <-chunks[i].data
+			_, err := io.Copy(w, bytes.NewBuffer(data))
+			if err != nil {
+				w.CloseWithError(err)
 			}
 		}
 
@@ -357,7 +356,7 @@ func generateNFO(playlistName string, outputDir string) error {
 	return err
 }
 
-func DownloadSingleTrack(track *db.SongTask) {
+func HandleSongTask(track *db.SongTask) {
 	// Update status to in_progress
 	db.UpdateSongTaskStatus(int(track.GroupTaskID), track.VideoID, db.TaskStatusProcessing)
 
@@ -374,6 +373,20 @@ func DownloadSingleTrack(track *db.SongTask) {
 	// Ensure download directory exists
 	if _, err := os.Stat(fullDownloadPath); os.IsNotExist(err) {
 		os.MkdirAll(fullDownloadPath, 0755)
+	}
+
+	// Check for free disk space (require at least 50MB)
+	freeSpace, err := utils.GetFreeDiskSpace(fullDownloadPath)
+	if err != nil {
+		log.Printf("Failed to check disk space: %v", err)
+		// Proceeding anyway as it might be a permission issue or unsupported OS
+	} else {
+		const minSpace = 50 * 1024 * 1024 // 50MB
+		if freeSpace < minSpace {
+			log.Printf("Insufficient disk space: %d bytes available, %d required", freeSpace, minSpace)
+			db.UpdateSongTaskStatus(int(track.GroupTaskID), track.VideoID, db.TaskStatusFailed)
+			return
+		}
 	}
 
 	trackInfo := TrackInfo{
@@ -393,22 +406,12 @@ func DownloadSingleTrack(track *db.SongTask) {
 }
 
 func resolveDownloadDirectory(groupTask *db.GroupTask) (string, string, string) {
-	downloadPath, err := db.GetSetting("download_path")
-	if err != nil || downloadPath == "" {
-		downloadPath = "downloads"
-	}
+	downloadPath, _ := db.GetSetting(db.DownloadPathSetting)
 
-	playlistName := "Unknown Playlist"
-	if groupTask.Type == db.TaskTypeOngoingDownload {
+	playlistName := groupTask.PlaylistName
+	if groupTask.Type == db.TaskTypeOngoingDownload && playlistName == "" {
 		// Use safe format for folder name (no colons)
 		playlistName = fmt.Sprintf("Songs %s", groupTask.CreatedAt.Format("2006-01-02_15-04"))
-	} else if groupTask.Payload != "" {
-		var payloadMap map[string]interface{}
-		if err := json.Unmarshal([]byte(groupTask.Payload), &payloadMap); err == nil {
-			if name, ok := payloadMap["playlistName"].(string); ok {
-				playlistName = name
-			}
-		}
 	}
 
 	playlistFolder := sanitizeFilename(playlistName)

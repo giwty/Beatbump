@@ -3,6 +3,7 @@ package downloader
 import (
 	"beatbump-server/backend/db"
 	"log"
+	"math/rand"
 	"time"
 )
 
@@ -36,14 +37,15 @@ func StartWorker() {
 			if err == nil && len(songTasks) > 0 {
 				// Process concurrent downloads
 				// Limit concurrency to avoid rate limiting or system overload
-				concurrencyLimit := 5
+				concurrencyLimit := 1
 				sem := make(chan struct{}, concurrencyLimit)
 
 				for _, songTask := range songTasks {
 					sem <- struct{}{} // Acquire semaphore
 					go func(task *db.SongTask) {
 						defer func() { <-sem }() // Release semaphore
-						DownloadSingleTrack(task)
+						HandleSongTask(task)
+						time.Sleep(time.Duration(rand.Intn(8)) * time.Second)
 					}(songTask)
 				}
 
