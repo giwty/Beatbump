@@ -2,7 +2,6 @@ package api
 
 import (
 	"beatbump-server/backend/db"
-	"fmt"
 	"net/http"
 	"os"
 	"strconv"

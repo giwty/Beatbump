@@ -85,9 +85,6 @@ func handleTrackdownloadTask(playlistId string, companionAPIKey string, companio
 			var playlistName string
 			var task *db.GroupTask
 
-			if strings.HasPrefix(playlistId, "RDCL") {
-				playlistId = "VL" + playlistId
-			}
 			// Treat "RD" (Radio) playlists as part of the ongoing session, not as a separate playlist
 			// Also handle "undefined" string which can come from frontend
 			if playlistId != "" && playlistId != "undefined" &&
@@ -98,6 +95,9 @@ func handleTrackdownloadTask(playlistId string, companionAPIKey string, companio
 				if err == nil && t != nil {
 					task = t
 				} else {
+					if !strings.HasPrefix(playlistId, "VL") {
+						playlistId = "VL" + playlistId
+					}
 					// Task doesn't exist, fetch playlist name
 					pl, err := GetPlaylist(playlistId, "", "")
 					if err == nil {
