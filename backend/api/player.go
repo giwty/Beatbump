@@ -95,7 +95,7 @@ func handleTrackdownloadTask(playlistId string, companionAPIKey string, companio
 				if err == nil && t != nil {
 					task = t
 				} else {
-					if !strings.HasPrefix(playlistId, "VL") {
+					if strings.HasPrefix(playlistId, "R") && !strings.HasPrefix(playlistId, "VL") {
 						playlistId = "VL" + playlistId
 					}
 					// Task doesn't exist, fetch playlist name

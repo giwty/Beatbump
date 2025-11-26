@@ -111,26 +111,58 @@ func fetchPlaylistTracks(playlistID string) ([]TrackInfo, error) {
 func downloadTrack(track TrackInfo, downloadPath, playlistFolder, companionBaseURL string, companionAPIKey *string) (string, error) {
 	log.Printf("Downloading %s - %s", track.Artist, track.Title)
 
-	// Get Stream URL
-	responseBytes, err := yt_api.Player(track.VideoID, "", yt_api.IOS_MUSIC, nil, companionBaseURL, companionAPIKey)
+	// 1. Get Stream Info
+	streamUrl, contentLength, err := getStreamInfo(track.VideoID, companionBaseURL, companionAPIKey)
 	if err != nil {
 		return "", err
+	}
+
+	// 2. Build filename and path (always .m4a)
+	baseFilename := fmt.Sprintf("%s - %s", track.Artist, track.Title)
+	filename := sanitizeFilename(baseFilename + ".m4a")
+	finalFilePath := filepath.Join(downloadPath, filename)
+
+	// 3. Create output file
+	downloadTarget, err := os.Create(finalFilePath)
+	if err != nil {
+		return "", fmt.Errorf("failed to create file: %v", err)
+	}
+
+	// 4. Perform Download
+	err = performDownload(streamUrl, downloadTarget, contentLength)
+	downloadTarget.Close() // Close immediately after download
+
+	if err != nil {
+		os.Remove(finalFilePath)
+		return "", err
+	}
+
+	log.Printf("Finished downloading %s - %s", track.Artist, track.Title)
+
+	// Return absolute path to the downloaded file
+	return finalFilePath, nil
+}
+
+func getStreamInfo(videoID, companionBaseURL string, companionAPIKey *string) (string, int64, error) {
+	responseBytes, err := yt_api.Player(videoID, "", yt_api.IOS_MUSIC, nil, companionBaseURL, companionAPIKey)
+	if err != nil {
+		return "", 0, err
 	}
 
 	var playerResponse _youtube.PlayerResponse
 	err = json.Unmarshal(responseBytes, &playerResponse)
 	if err != nil {
-		return "", err
+		return "", 0, err
 	}
 
 	if playerResponse.PlayabilityStatus.Status != "OK" {
-		return "", fmt.Errorf("not playable: %s", playerResponse.PlayabilityStatus.Status)
+		return "", 0, fmt.Errorf("not playable: %s", playerResponse.PlayabilityStatus.Status)
 	}
 
 	var streamUrl string
 	var contentLength int64
-	// Find best audio format
 	bestBitrate := 0
+
 	for _, format := range playerResponse.StreamingData.AdaptiveFormats {
 		if strings.HasPrefix(format.MimeType, "audio") {
 			if format.Bitrate > bestBitrate {
@@ -142,24 +174,16 @@ func downloadTrack(track TrackInfo, downloadPath, playlistFolder, companionBaseU
 	}
 
 	if streamUrl == "" {
-		return "", fmt.Errorf("no audio stream found")
+		return "", 0, fmt.Errorf("no audio stream found")
 	}
 
-	// Sanitize filename
-	filename := fmt.Sprintf("%s - %s.m4a", track.Artist, track.Title)
-	filename = sanitizeFilename(filename)
-	filePath := filepath.Join(downloadPath, filename)
+	return streamUrl, contentLength, nil
+}
 
-	// Download directly to file
-	out, err := os.Create(filePath)
-	if err != nil {
-		return "", fmt.Errorf("failed to create file: %v", err)
-	}
-	defer out.Close()
-
+func performDownload(streamUrl string, output *os.File, contentLength int64) error {
 	req, err := http.NewRequest(http.MethodGet, streamUrl, nil)
 	if err != nil {
-		return "", fmt.Errorf("failed to download stream: %v", err)
+		return fmt.Errorf("failed to create request: %v", err)
 	}
 
 	r, w := io.Pipe()
@@ -167,7 +191,7 @@ func downloadTrack(track TrackInfo, downloadPath, playlistFolder, companionBaseU
 	if contentLength == 0 {
 		resp, err := http.Get(streamUrl)
 		if err != nil {
-			return "", fmt.Errorf("failed to download stream: %v", err)
+			return fmt.Errorf("failed to download stream: %v", err)
 		}
 
 		go func() {
@@ -176,21 +200,77 @@ func downloadTrack(track TrackInfo, downloadPath, playlistFolder, companionBaseU
 			if err == nil {
 				w.Close()
 			} else {
-				w.CloseWithError(err) //nolint:errcheck
+				w.CloseWithError(err)
 			}
 		}()
 	} else {
-		// we have length information, let's download by chunks!
 		downloadChunked(req, w, contentLength)
 	}
 	defer r.Close()
-	_, err = io.Copy(out, r)
+
+	_, err = io.Copy(output, r)
 	if err != nil {
-		return "", fmt.Errorf("failed to save stream: %v", err)
+		return fmt.Errorf("failed to save stream: %v", err)
+	}
+	return nil
+}
+
+func convertTrack(track TrackInfo, inputM4aPath, downloadPath string) (string, error) {
+	log.Printf("Converting %s - %s to MP3", track.Artist, track.Title)
+
+	baseFilename := fmt.Sprintf("%s - %s", track.Artist, track.Title)
+	mp3Filename := sanitizeFilename(baseFilename + ".mp3")
+	mp3FilePath := filepath.Join(downloadPath, mp3Filename)
+
+	// 1. Fetch Enhanced Metadata (Best Effort)
+	enhancedMeta, err := utils.FetchMetadata(track.Artist, track.Title)
+	if err != nil {
+		log.Printf("Metadata fetch failed for %s - %s: %v", track.Artist, track.Title, err)
+		// Fallback to basic metadata
+		enhancedMeta = &utils.AudioMetadata{
+			Title:  track.Title,
+			Artist: track.Artist,
+			Album:  track.Album,
+		}
+	} else {
+		log.Printf("Enhanced metadata found: %s - %s (%s)", enhancedMeta.Artist, enhancedMeta.Title, enhancedMeta.Album)
 	}
 
-	// Return relative path including playlist folder
-	return filepath.Join(playlistFolder, filename), nil
+	// 2. Determine Cover Art
+	var coverPath string
+
+	// Priority: iTunes Artwork > YouTube Thumbnail
+	artworkURL := enhancedMeta.ArtworkURL
+	if artworkURL == "" {
+		artworkURL = track.ThumbnailURL
+	}
+
+	if artworkURL != "" {
+		cf, err := os.CreateTemp("", "beatbump_cover_*.jpg")
+		if err == nil {
+			coverPath = cf.Name()
+			cf.Close()
+			if err := downloadFile(artworkURL, coverPath); err != nil {
+				os.Remove(coverPath)
+				coverPath = ""
+			} else {
+				defer os.Remove(coverPath)
+			}
+		}
+	}
+
+	// 3. Convert
+	err = utils.ConvertToMp3(inputM4aPath, mp3FilePath, coverPath, *enhancedMeta)
+	if err != nil {
+		log.Printf("Conversion failed for %s: %v", track.Title, err)
+		return "", fmt.Errorf("conversion failed: %v", err)
+	}
+
+	// 4. Remove original .m4a file after successful conversion
+	os.Remove(inputM4aPath)
+	log.Printf("Conversion complete: %s", mp3Filename)
+
+	return mp3FilePath, nil
 }
 
 const (
@@ -390,19 +470,36 @@ func HandleSongTask(track *db.SongTask) {
 	}
 
 	trackInfo := TrackInfo{
-		VideoID: track.VideoID,
-		Title:   track.Title,
-		Artist:  track.Artist,
-		Album:   track.Album,
+		VideoID:      track.VideoID,
+		Title:        track.Title,
+		Artist:       track.Artist,
+		Album:        track.Album,
+		ThumbnailURL: track.ThumbnailURL,
 	}
 
-	relativePath, err := downloadTrack(trackInfo, fullDownloadPath, playlistFolder, groupTask.CompanionBaseURL, &groupTask.CompanionAPIKey)
+	// Step 1: Download the track (always as .m4a)
+	absolutePath, err := downloadTrack(trackInfo, fullDownloadPath, playlistFolder, groupTask.CompanionBaseURL, &groupTask.CompanionAPIKey)
 	if err != nil {
 		log.Printf("Failed to download track %s: %v", track.Title, err)
 		db.UpdateSongTaskStatus(int(track.GroupTaskID), track.VideoID, db.TaskStatusFailed)
-	} else {
-		finalizeTask(track, relativePath, playlistName, fullDownloadPath)
+		return
 	}
+
+	// Step 2: Convert to MP3 if FFmpeg is available
+	finalPath := absolutePath
+	if utils.IsFFmpegAvailable() {
+		convertedPath, err := convertTrack(trackInfo, absolutePath, fullDownloadPath)
+		if err != nil {
+			log.Printf("Conversion failed for %s: %v. Keeping .m4a file.", track.Title, err)
+			// Continue with .m4a file (don't fail the task)
+		} else {
+			finalPath = convertedPath
+		}
+	}
+
+	// Step 3: Finalize the task
+	relativePath := filepath.Join(playlistFolder, filepath.Base(finalPath))
+	finalizeTask(track, relativePath, playlistName, fullDownloadPath)
 }
 
 func resolveDownloadDirectory(groupTask *db.GroupTask) (string, string, string) {
@@ -439,4 +536,21 @@ func finalizeTask(track *db.SongTask, relativePath, playlistName, fullDownloadPa
 			}
 		}
 	}
+}
+
+func downloadFile(url, path string) error {
+	resp, err := http.Get(url)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	out, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	_, err = io.Copy(out, resp.Body)
+	return err
 }

@@ -3,6 +3,7 @@ package db
 import (
 	"log"
 	"time"
+
 	"github.com/glebarez/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -51,11 +52,11 @@ type Setting struct {
 
 func InitDB() {
 	var err error
-	// Use GORM with SQLite
-	// Enable WAL mode via DSN
-	dsn := "file:beatbump.db?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)"
+
+	dsn := "file:/db/beatbump.db?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)"
+
 	DB, err = gorm.Open(sqlite.Open(dsn), &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Warn),
+		Logger: logger.Default.LogMode(logger.Silent),
 	})
 	if err != nil {
 		log.Fatal("Failed to connect to database:", err)
