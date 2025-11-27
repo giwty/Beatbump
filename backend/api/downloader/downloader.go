@@ -448,7 +448,9 @@ func HandleSongTask(track *db.SongTask) {
 		return
 	}
 
-	fullDownloadPath, playlistFolder, playlistName := resolveDownloadDirectory(groupTask)
+	// Fetch download path setting
+	downloadPath, _ := db.GetSetting(db.DownloadPathSetting)
+	fullDownloadPath, playlistFolder, playlistName := resolveDownloadDirectory(groupTask, downloadPath)
 
 	// Ensure download directory exists
 	if _, err := os.Stat(fullDownloadPath); os.IsNotExist(err) {
@@ -502,13 +504,22 @@ func HandleSongTask(track *db.SongTask) {
 	finalizeTask(track, relativePath, playlistName, fullDownloadPath)
 }
 
-func resolveDownloadDirectory(groupTask *db.GroupTask) (string, string, string) {
-	downloadPath, _ := db.GetSetting(db.DownloadPathSetting)
-
+func resolveDownloadDirectory(groupTask *db.GroupTask, downloadPath string) (string, string, string) {
 	playlistName := groupTask.PlaylistName
-	if groupTask.Type == db.TaskTypeOngoingDownload && playlistName == "" {
-		// Use safe format for folder name (no colons)
-		playlistName = fmt.Sprintf("Songs %s", groupTask.CreatedAt.Format("2006-01-02_15-04"))
+	if groupTask.Type == db.TaskTypeOngoingDownload {
+		if playlistName == "" {
+			// Use safe format for folder name (no colons)
+			// Format: Songs YYYY-MM-DD_HH-MM
+			playlistName = fmt.Sprintf("Songs %s", groupTask.CreatedAt.Format("2006-01-02_15-04"))
+		}
+
+		// For ongoing downloads, place them in a dedicated subfolder
+		// We sanitize the playlist name first, then join with the parent folder
+		safePlaylistName := sanitizeFilename(playlistName)
+		playlistFolder := filepath.Join("Ongoing Listening", safePlaylistName)
+		fullDownloadPath := filepath.Join(downloadPath, playlistFolder)
+
+		return fullDownloadPath, playlistFolder, playlistName
 	}
 
 	playlistFolder := sanitizeFilename(playlistName)
