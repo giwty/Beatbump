@@ -1,6 +1,7 @@
 services:
 
   beatbump:
+    #image: ghcr.io/giwty/beatbump:latest
     build:
       dockerfile: Dockerfile
     container_name: beatbump
@@ -16,8 +17,8 @@ services:
     environment:
       - SERVER_SECRET_KEY=abcd123apikeykey
     restart: unless-stopped
-    ports:
-      - "8282:8282"
+    expose:
+      - "8282"
     logging:
       options:
         max-size: "1G"

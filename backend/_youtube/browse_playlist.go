@@ -375,6 +375,16 @@ type PlaylistResponse struct {
 			} `json:"tabs"`
 		} `json:"singleColumnBrowseResultsRenderer"`
 	} `json:"contents"`
+	OnResponseReceivedActions []struct {
+		ClickTrackingParams           string `json:"clickTrackingParams"`
+		AppendContinuationItemsAction struct {
+			ContinuationItems []struct {
+				MusicResponsiveListItemRenderer MusicResponsiveListItemRenderer `json:"musicResponsiveListItemRenderer,omitempty"` 	 
+				ContinuationItemRenderer        *ContinuationItemRenderer       `json:"continuationItemRenderer,omitempty"`
+			} `json:"continuationItems"`
+			TargetID string `json:"targetId"`
+		} `json:"appendContinuationItemsAction"`
+	} `json:"onResponseReceivedActions"`
 	ContinuationContents struct {
 		SectionListContinuation struct {
 			Contents []struct {
@@ -689,10 +699,22 @@ type PlaylistResponse struct {
 	TrackingParams string `json:"trackingParams"`
 }
 
+type ContinuationItemRenderer struct {
+	Trigger              string `json:"trigger"`
+	ContinuationEndpoint struct {
+		ClickTrackingParams string `json:"clickTrackingParams"`
+		ContinuationCommand struct {
+			Token   string `json:"token"`
+			Request string `json:"request"`
+		} `json:"continuationCommand"`
+	} `json:"continuationEndpoint"`
+}
+
 type MusicPlaylistShelfRenderer struct {
 	PlaylistId string `json:"playlistId"`
 	Contents   []struct {
 		MusicResponsiveListItemRenderer MusicResponsiveListItemRenderer `json:"musicResponsiveListItemRenderer"`
+		ContinuationItemRenderer        *ContinuationItemRenderer       `json:"continuationItemRenderer,omitempty"`
 	} `json:"contents"`
 	Continuations []struct {
 		NextContinuationData struct {

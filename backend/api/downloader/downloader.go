@@ -63,45 +63,90 @@ func PopulateGroupTask(playlistID string, groupTaskID int) {
 }
 
 func fetchPlaylistTracks(playlistID string) ([]TrackInfo, error) {
-	playlistResponse, err := api.GetPlaylist(playlistID, "", "")
-	if err != nil {
-		return nil, err
-	}
-
 	var tracks []TrackInfo
+	ctoken := ""
+	itct := ""
 
-	for _, item := range playlistResponse.Tracks {
-		title := item.Title
-
-		var videoId string
-		if item.VideoId != nil {
-			videoId = *item.VideoId
+	for {
+		log.Printf("Fetching playlist %s (ctoken: %s)", playlistID, ctoken)
+		playlistResponse, err := api.GetPlaylist(playlistID, ctoken, itct)
+		if err != nil {
+			return nil, err
 		}
 
-		var artist string
-		if len(item.ArtistInfo.Artist) > 0 {
-			artist = item.ArtistInfo.Artist[0].Text
+		for _, item := range playlistResponse.Tracks {
+			title := item.Title
+
+			var videoId string
+			if item.VideoId != nil {
+				videoId = *item.VideoId
+			}
+
+			var artist string
+			if len(item.ArtistInfo.Artist) > 0 {
+				artist = item.ArtistInfo.Artist[0].Text
+			}
+
+			var album string
+			if item.Album != nil {
+				album = item.Album.Text
+			}
+
+			var thumbnailURL string
+			if len(item.Thumbnails) > 0 {
+				// Get the last thumbnail (usually highest quality)
+				thumbnailURL = item.Thumbnails[len(item.Thumbnails)-1].URL
+			}
+
+			if videoId != "" {
+				tracks = append(tracks, TrackInfo{
+					VideoID:      videoId,
+					Title:        title,
+					Artist:       artist,
+					Album:        album,
+					ThumbnailURL: thumbnailURL,
+				})
+			}
 		}
 
-		var album string
-		if item.Album != nil {
-			album = item.Album.Text
+		// Check for continuations
+		if playlistResponse.Continuations == nil {
+			break
 		}
 
-		var thumbnailURL string
-		if len(item.Thumbnails) > 0 {
-			// Get the last thumbnail (usually highest quality)
-			thumbnailURL = item.Thumbnails[len(item.Thumbnails)-1].URL
+		// Extract continuation tokens
+		// The Continuations field is an interface{} holding an anonymous struct from _youtube package
+		// We use JSON marshaling to extract the fields we need safely
+		type ContinuationData struct {
+			Continuation        string `json:"continuation"`
+			ClickTrackingParams string `json:"clickTrackingParams"`
+			Token               string `json:"token"`
 		}
 
-		if videoId != "" {
-			tracks = append(tracks, TrackInfo{
-				VideoID:      videoId,
-				Title:        title,
-				Artist:       artist,
-				Album:        album,
-				ThumbnailURL: thumbnailURL,
-			})
+		dataBytes, err := json.Marshal(playlistResponse.Continuations)
+		if err != nil {
+			log.Printf("Failed to marshal continuations: %v", err)
+			break
+		}
+
+		var contData ContinuationData
+		if err := json.Unmarshal(dataBytes, &contData); err != nil {
+			log.Printf("Failed to unmarshal continuations: %v", err)
+			break
+		}
+
+		if contData.Continuation != "" {
+			ctoken = contData.Continuation
+			itct = contData.ClickTrackingParams
+		} else if contData.Token != "" {
+			ctoken = contData.Token
+			// itct might be missing in ContinuationCommand, keep previous or ignore?
+			// Assuming we keep using the previous itct if not provided, or it's not needed.
+			if contData.ClickTrackingParams != "" {
+				itct = contData.ClickTrackingParams
+			}
+		} else {
+			break
 		}
 	}
 

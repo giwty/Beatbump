@@ -851,7 +851,9 @@ type MusicResponsiveListItemRenderer struct {
 	} `json:"navigationEndpoint"`
 	ItemHeight       string `json:"itemHeight"`
 	PlaylistItemData struct {
-		VideoId string `json:"videoId"`
+		PlaylistSetVideoID string `json:"playlistSetVideoId"`
+		VideoID            string `json:"videoId"`
+		VoteSortValue      int    `json:"voteSortValue"`
 	} `json:"playlistItemData,omitempty"`
 	Badges []struct {
 		MusicInlineBadgeRenderer struct {

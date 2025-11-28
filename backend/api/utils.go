@@ -120,10 +120,6 @@ func parseMusicResponsiveListItemRenderer(itemRender _youtube.MusicResponsiveLis
 		item.AspectRatio = &itemRender.FlexColumnDisplayStyle
 	}
 
-	if item.PlaylistSetVideoId != "" {
-		item.PlaylistSetVideoId = item.PlaylistSetVideoId
-	}
-
 	if len(itemRender.FlexColumns) > 0 {
 		subtitleRuns := itemRender.FlexColumns[1].MusicResponsiveListItemFlexColumnRenderer.Text.Runs
 		itemArtists := make([]Artist, 0, len(subtitleRuns))

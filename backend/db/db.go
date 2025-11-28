@@ -53,7 +53,7 @@ type Setting struct {
 func InitDB() {
 	var err error
 
-	dsn := "file:/db/beatbump.db?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)"
+	dsn := "file:beatbump.db?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)"
 
 	DB, err = gorm.Open(sqlite.Open(dsn), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Silent),
@@ -261,6 +261,7 @@ func GetPendingSongTasks() ([]*SongTask, error) {
 		Select("song_tasks.*, group_tasks.source").
 		Joins("JOIN group_tasks ON song_tasks.group_task_id = group_tasks.id").
 		Where("song_tasks.status = ?", TaskStatusNotStarted).
+		Where("group_tasks.status != ?", TaskStatusPaused).
 		Order("CASE WHEN group_tasks.source = '" + TaskSourceUser + "' THEN 0 ELSE 1 END").
 		Order("song_tasks.created_at ASC").
 		Scan(&tasks).Error

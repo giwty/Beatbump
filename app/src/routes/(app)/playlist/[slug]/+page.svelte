@@ -69,7 +69,7 @@
 			: "";
 	$: !import.meta.env.SSR && console.log(data);
 	const getCarousel = async () => {
-		if (!carouselContinuations) return;
+		if (!carouselContinuations || !continuations) return;
 		const response = await APIClient.fetch(
 			`/api/v1/playlist.json` +
 				"?ref=" +
@@ -77,7 +77,7 @@
 				`${
 					carouselContinuations
 						? `&ctoken=${encodeURIComponent(
-								carouselContinuations?.continuation,
+								continuations.token || carouselContinuations?.continuation,
 						  )}`
 						: ""
 				}` +
@@ -88,6 +88,15 @@
 
 		if (data?.carousel) {
 			carousel = { ...data?.carousel };
+		}
+
+		if (data?.tracks) {
+			trackStore.update((t) => [...t, ...data.tracks]);
+		}
+
+		if (data?.continuations) {
+			ctoken = data.continuations.continuation || data.continuations.token;
+			itct = data.continuations.clickTrackingParams || itct;
 		}
 	};
 	const getContinuation = async () => {
@@ -122,8 +131,8 @@
 					if response has coninuations object, set the new ITCT and Ctoken
 					update tracks
 				*/
-				ctoken = data.continuations.continuation;
-				itct = data.continuations.clickTrackingParams;
+				ctoken = data.continuations.continuation || data.continuations.token;
+				itct = data.continuations.clickTrackingParams || itct;
 				trackStore.update((t) => [...t, ...continuationItems]);
 				isLoading = false;
 				hasData = data.length === 0;

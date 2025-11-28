@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"net/http"
 
+	"strings"
+
 	"github.com/labstack/echo/v4"
 )
 
@@ -62,7 +64,7 @@ func GetPlaylist(browseID string, ctoken string, itct string) (PlaylistAPIRespon
 	var responseBytes []byte
 	var err error
 
-	if ctoken != "" && itct != "" {
+	if ctoken != ""  {
 		responseBytes, err = api.Browse(browseID, api.PageType_MusicPageTypePlaylist, "", nil, &itct, &ctoken, api.WebMusic)
 	} else {
 		responseBytes, err = api.Browse(browseID, api.PageType_MusicPageTypePlaylist, "", nil, nil, nil, api.WebMusic)
@@ -114,10 +116,32 @@ func parsePlaylist(playlistResponse _youtube.PlaylistResponse) PlaylistAPIRespon
 			response.Continuations = continuations[0].NextContinuationData
 		}
 	}
+	var continuation *_youtube.ContinuationItemRenderer = nil
+	if len(playlistResponse.OnResponseReceivedActions) != 0 {
+		tracks := []IListItemRenderer{}
+		appendContinuationItemsAction := playlistResponse.OnResponseReceivedActions[0].AppendContinuationItemsAction
+		for _, musicResponsiveListItemRenderer := range appendContinuationItemsAction.ContinuationItems {
+			if musicResponsiveListItemRenderer.ContinuationItemRenderer != nil {
+				continuation = musicResponsiveListItemRenderer.ContinuationItemRenderer
+				response.Continuations = continuation.ContinuationEndpoint.ContinuationCommand
+				continue
+			}
+			item := parseMusicResponsiveListItemRenderer(musicResponsiveListItemRenderer.MusicResponsiveListItemRenderer)
+			tracks = append(tracks, item)
+		}
+		response.Tracks = tracks
+		header["playlistId"] = appendContinuationItemsAction.TargetID
+	}
 
 	if musicPlaylistShelfRenderer != nil {
 		tracks := []IListItemRenderer{}
+		
 		for _, musicResponsiveListItemRenderer := range musicPlaylistShelfRenderer.Contents {
+			if musicResponsiveListItemRenderer.ContinuationItemRenderer != nil {
+				continuation = musicResponsiveListItemRenderer.ContinuationItemRenderer
+				response.Continuations = continuation.ContinuationEndpoint.ContinuationCommand
+				continue
+			}
 			item := parseMusicResponsiveListItemRenderer(musicResponsiveListItemRenderer.MusicResponsiveListItemRenderer)
 			tracks = append(tracks, item)
 		}

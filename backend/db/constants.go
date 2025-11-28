@@ -7,6 +7,7 @@ const (
 	TaskStatusCompleted  = "completed"
 	TaskStatusFailed     = "failed"
 	TaskStatusNotStarted = "not_started"
+	TaskStatusPaused     = "paused"
 )
 
 // Task Types
@@ -21,8 +22,8 @@ const (
 	TaskSourceSystem = "system"
 )
 
-// settings 
+// settings
 const (
 	OngoingListeningEnabledSetting = "ongoing_listening_enabled"
-	DownloadPathSetting = "download_path"
+	DownloadPathSetting            = "download_path"
 )

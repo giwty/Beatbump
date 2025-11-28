@@ -8,7 +8,7 @@ type innertubeRequest struct {
 	BrowseID                         string                            `json:"browseId,omitempty"`
 	Query                            string                            `json:"query,omitempty"`
 	Input                            *string                           `json:"input,omitempty"`
-	Continuation                     map[string]string                 `json:"continuation,omitempty"`
+	Continuation                     *string                           `json:"continuation,omitempty"`
 	Context                          inntertubeContext                 `json:"context"`
 	PlaybackContext                  *playbackContext                  `json:"playbackContext,omitempty"`
 	ContentCheckOK                   bool                              `json:"contentCheckOk,omitempty"`

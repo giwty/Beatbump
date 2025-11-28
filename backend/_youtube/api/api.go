@@ -27,12 +27,22 @@ func Browse(browseId string, pageType PageType, params string,
 
 	urlAddress := URL_BASE + "browse" + "?prettyPrint=false"
 	innertubeContext := prepareInnertubeContext(client, visitorData)
-	//playlistUrl := "https://music.youtube.com/playlist?list=" + ""
-	//innertubeContext.Client.OriginalUrl = &playlistUrl
+
 	data := innertubeRequest{
 		Context: innertubeContext,
 	}
-	if itct != nil && ctoken != nil {
+	if (itct == nil || *itct == "") && ctoken != nil {
+		data = innertubeRequest{
+			//RequestAttributes: additionalRequestAttributes,
+			Continuation: ctoken,
+			Context:  innertubeContext,
+			//ContentCheckOK: true,
+			//RacyCheckOk:    true,
+			BrowseEndpointContextMusicConfig: &BrowseEndpointContextMusicConfig{
+				PageType: string(pageType),
+			},
+		}
+	} else if itct != nil && ctoken != nil {
 		urlAddress = handleContinuation(urlAddress, *itct, *ctoken)
 	} else {
 
@@ -46,6 +56,10 @@ func Browse(browseId string, pageType PageType, params string,
 				PageType: string(pageType),
 			},
 		}
+	}
+
+	if ctoken != nil {
+		data.Continuation = ctoken
 	}
 
 	if params != "" {

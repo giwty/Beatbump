@@ -63,6 +63,7 @@ export interface Continuation {
 export interface NextContinuationData {
 	continuation: string;
 	clickTrackingParams: string;
+	token: string;
 }
 
 export interface TitleEndpoint {
