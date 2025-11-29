@@ -2,8 +2,10 @@ package db
 
 import (
 	"log"
+	"os"
 	"time"
 
+	"github.com/dop251/goja/file"
 	"github.com/glebarez/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -22,8 +24,6 @@ type GroupTask struct {
 	PlaylistName     string
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
-	CompanionAPIKey  string
-	CompanionBaseURL string
 	Source           string `gorm:"default:user"`
 
 	// Ignored fields for GORM, used for UI
@@ -52,8 +52,8 @@ type Setting struct {
 
 func InitDB() {
 	var err error
-
-	dsn := "file:beatbump.db?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)"
+	dbPath := os.Getenv("BEATBUMP_DB_PATH")
+	dsn := "file:"+dbPath+file.FileSeparator+"beatbump.db?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)"
 
 	DB, err = gorm.Open(sqlite.Open(dsn), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Silent),
@@ -76,14 +76,12 @@ func InitDB() {
 
 // Group Task Functions
 
-func AddGroupTask(taskType, referenceID, playlistName, companionAPIKey, companionBaseURL, source string) error {
+func AddGroupTask(taskType, referenceID, playlistName, source string) error {
 	task := GroupTask{
 		Type:             taskType,
 		ReferenceID:      referenceID,
 		Status:           TaskStatusPending,
 		PlaylistName:     playlistName,
-		CompanionAPIKey:  companionAPIKey,
-		CompanionBaseURL: companionBaseURL,
 		Source:           source,
 	}
 	return DB.Create(&task).Error
@@ -185,13 +183,7 @@ func UpdateGroupTaskStatus(id int, status string) error {
 	}).Error
 }
 
-func UpdateGroupTaskCompanionInfo(id int, apiKey, baseURL string) error {
-	return DB.Model(&GroupTask{}).Where("id = ?", id).Updates(map[string]interface{}{
-		"companion_api_key":  apiKey,
-		"companion_base_url": baseURL,
-		"updated_at":         time.Now(),
-	}).Error
-}
+
 
 func RetryGroupTask(id int) error {
 	return DB.Transaction(func(tx *gorm.DB) error {

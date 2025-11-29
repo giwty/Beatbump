@@ -10,6 +10,10 @@ services:
     volumes:
       - /downloads:/downloads
       - /db:/db
+    environment:
+      - COMPANION_SECRET_KEY=abcd123apikeykey
+      - COMPANION_URL=http://companion:8282
+      - BEATBUMP_DB_PATH=/db
     restart: unless-stopped
 
   companion:

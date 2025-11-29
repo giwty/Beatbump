@@ -4,23 +4,29 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
-	"crypto/sha1"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"log"
 	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"os"
 	"strings"
-	"time"
 )
 
 const URL_BASE = "https://music.youtube.com/youtubei/v1/"
 
 const DEBUG = false
+
+var companionBaseURL string
+var companionAPIKey string
+
+func init() {
+	companionBaseURL = os.Getenv("COMPANION_URL")
+	companionAPIKey = os.Getenv("COMPANION_SECRET_KEY")
+}
 
 func Browse(browseId string, pageType PageType, params string,
 	visitorData *string, itct *string, ctoken *string, client ClientInfo) ([]byte, error) {
@@ -65,7 +71,7 @@ func Browse(browseId string, pageType PageType, params string,
 	if params != "" {
 		data.Params = params
 	}
-	resp, err := callAPI(urlAddress, data, client, nil)
+	resp, err := callAPI(urlAddress, data, client)
 	if err != nil {
 		return nil, err
 	}
@@ -92,7 +98,7 @@ func GetSearchSuggestions(query string, client ClientInfo) ([]byte, error) {
 		Input:   strPtr(query),
 	}
 
-	resp, err := callAPI(url, data, client, nil)
+	resp, err := callAPI(url, data, client)
 	if err != nil {
 		return nil, err
 	}
@@ -132,7 +138,7 @@ func Search(query string, filter string, itct *string, ctoken *string, client Cl
 		data.Params = filter
 	}
 
-	resp, err := callAPI(url, data, client, nil)
+	resp, err := callAPI(url, data, client)
 	if err != nil {
 		return nil, err
 	}
@@ -165,7 +171,7 @@ func GetQueue(videoId string, playlistId string, client ClientInfo) ([]byte, err
 		},*/
 	}
 
-	resp, err := callAPI(url, data, client, nil)
+	resp, err := callAPI(url, data, client)
 	if err != nil {
 		return nil, err
 	}
@@ -202,7 +208,7 @@ func Next(videoId string, playlistId string, client ClientInfo, params Params) (
 		},*/
 	}
 
-	resp, err := callAPI(url, data, client, nil)
+	resp, err := callAPI(url, data, client)
 	if err != nil {
 		return nil, err
 	}
@@ -210,7 +216,8 @@ func Next(videoId string, playlistId string, client ClientInfo, params Params) (
 
 }
 
-func Player(videoId string, playlistId string, client ClientInfo, params Params, companionBaseURL string, companionAPIKey *string) ([]byte, error) {
+func Player(videoId string, playlistId string, client ClientInfo, params Params) ([]byte, error) {
+		
 	if companionBaseURL == "" {
 		return nil, errors.New("Missing companion base URL")
 	}
@@ -239,7 +246,7 @@ func Player(videoId string, playlistId string, client ClientInfo, params Params,
 		},
 	}
 
-	resp, err := callAPI(playerUrl, data, client, companionAPIKey)
+	resp, err := callAPI(playerUrl, data, client)
 	if err != nil {
 		return nil, err
 	}
@@ -253,36 +260,26 @@ func DownloadWebpage(urlAddress string, clientInfo ClientInfo) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	return doRequest(clientInfo, req, nil, nil)
+	return doRequest(clientInfo, req, nil)
 }
 
-func callAPI(urlAddress string, requestPayload innertubeRequest, clientInfo ClientInfo, companionAPIKey *string) ([]byte, error) {
+func callAPI(urlAddress string, requestPayload innertubeRequest, clientInfo ClientInfo) ([]byte, error) {
 
 	req, err := http.NewRequest(http.MethodPost, urlAddress, nil)
 
 	if err != nil {
 		return nil, err
 	}
-	return doRequest(clientInfo, req, &requestPayload, companionAPIKey)
+	return doRequest(clientInfo, req, &requestPayload)
 }
 
-func doRequest(clientInfo ClientInfo, req *http.Request, requestPayload *innertubeRequest, companionAPIKey *string) ([]byte, error) {
+func doRequest(clientInfo ClientInfo, req *http.Request, requestPayload *innertubeRequest) ([]byte, error) {
 
 	client := getHttpClient()
 	urlAddress := req.URL.String()
 
 	if strings.Contains(urlAddress, "companion") {
-		if companionAPIKey != nil {
-			req.Header.Set("Authorization", "Bearer "+*companionAPIKey)
-		} else {
-			companionIndex := strings.Index(urlAddress, "companion")
-			targetURL := "https://music.youtube.com/" + urlAddress[companionIndex+len("companion/"):]
-			u, err := url.Parse(targetURL)
-			if err != nil {
-				return nil, err
-			}
-			req.URL = u
-		}
+		req.Header.Set("Authorization", "Bearer "+companionAPIKey)
 	}
 
 	if clientInfo.userAgent != "" {
@@ -330,11 +327,9 @@ func doRequest(clientInfo ClientInfo, req *http.Request, requestPayload *innertu
 
 	if resp.StatusCode != http.StatusOK {
 		log.Printf("API call failed with status %d \n  %s", resp.StatusCode, string(respBytes))
-		//if strings.Contains(urlAddress, "companion") {
-			dump, _ := httputil.DumpRequestOut(req, true)
-			log.Println(string(dump))
-			log.Println(string(respBytes))
-		//}
+		dump, _ := httputil.DumpRequestOut(req, true)
+		log.Println(string(dump))
+		log.Println(string(respBytes))
 		return nil, errors.New(resp.Status)
 	}
 
@@ -400,32 +395,4 @@ func strPtr(s string) *string {
 	return &s
 }
 
-// ParseCookieString parses a cookie string into a map of key-value pairs.
-func parseCookieString(cookieStr string) (map[string]string, error) {
-	cookies := make(map[string]string)
 
-	// Split the cookie string by ';' to get individual components
-	pairs := strings.Split(cookieStr, ";")
-
-	for _, pair := range pairs {
-		// Trim any leading/trailing whitespace
-		pair = strings.TrimSpace(pair)
-
-		// Split the pair by '=' to separate name and value
-		parts := strings.SplitN(pair, "=", 2)
-		if len(parts) == 2 {
-			cookies[parts[0]] = parts[1]
-		} else {
-			// If there's no '=', treat the pair as a flag
-			cookies[parts[0]] = ""
-		}
-	}
-
-	return cookies, nil
-}
-
-func getAuthorization(auth string) string {
-	ts := time.Now().Unix()
-	hash := sha1.Sum([]byte(fmt.Sprintf("%d %s %s", ts, auth, "https://music.youtube.com")))
-	return fmt.Sprintf("SAPISIDHASH %d_%x", ts, hash[:])
-}

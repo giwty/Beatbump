@@ -32,14 +32,7 @@ func PlayerEndpointHandler(c echo.Context) error {
 	var responseBytes []byte
 	var err error
 
-	companionAPIKey := c.Request().Header.Get("x-companion-api-key")
-	companionBaseURL := c.Request().Header.Get("x-companion-base-url")
-
-	if companionBaseURL == "" || companionAPIKey == "" {
-		return c.String(http.StatusInternalServerError, "Missing companion API configuration headers")
-	}
-
-	responseBytes, err = callPlayerAPI(api.IOS_MUSIC, videoId, playlistId, companionBaseURL, &companionAPIKey)
+	responseBytes, err = callPlayerAPI(api.IOS_MUSIC, videoId, playlistId)
 
 	if err != nil {
 		return c.String(http.StatusInternalServerError, err.Error())
@@ -71,12 +64,12 @@ func PlayerEndpointHandler(c echo.Context) error {
 	}
 
 	// Ongoing Listening Logic
-	handleTrackdownloadTask(playlistId, companionAPIKey, companionBaseURL, playerResponse, videoId)
+	handleTrackdownloadTask(playlistId, playerResponse, videoId)
 
 	return c.JSON(http.StatusOK, playerResponse)
 }
 
-func handleTrackdownloadTask(playlistId string, companionAPIKey string, companionBaseURL string, playerResponse _youtube.PlayerResponse, videoId string) {
+func handleTrackdownloadTask(playlistId string, playerResponse _youtube.PlayerResponse, videoId string) {
 	go func() {
 		enabled, _ := db.GetSetting(db.OngoingListeningEnabledSetting)
 		if enabled == "true" {
@@ -134,7 +127,7 @@ func handleTrackdownloadTask(playlistId string, companionAPIKey string, companio
 
 			if task == nil {
 				// Create task
-				db.AddGroupTask(db.TaskTypeOngoingDownload, refID, playlistName, companionAPIKey, companionBaseURL, db.TaskSourceSystem)
+				db.AddGroupTask(db.TaskTypeOngoingDownload, refID, playlistName, db.TaskSourceSystem)
 				task, _ = db.GetGroupTaskByReferenceID(refID)
 			}
 
@@ -154,9 +147,9 @@ func handleTrackdownloadTask(playlistId string, companionAPIKey string, companio
 	}()
 }
 
-func callPlayerAPI(clientInfo api.ClientInfo, videoId string, playlistId string, companionBaseURL string, companionAPIKey *string) ([]byte, error) {
+func callPlayerAPI(clientInfo api.ClientInfo, videoId string, playlistId string) ([]byte, error) {
 
-	responseBytes, err := api.Player(videoId, playlistId, clientInfo, nil, companionBaseURL, companionAPIKey)
+	responseBytes, err := api.Player(videoId, playlistId, clientInfo, nil)
 
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("Error building API request: %s", err))

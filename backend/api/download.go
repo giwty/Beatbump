@@ -26,14 +26,7 @@ func DownloadPlaylistHandler(c echo.Context) error {
 		return c.String(http.StatusBadRequest, "Playlist ID is required")
 	}
 
-	companionAPIKey := c.Request().Header.Get("x-companion-api-key")
-	companionBaseURL := c.Request().Header.Get("x-companion-base-url")
-
-	if companionAPIKey == "" || companionBaseURL == "" {
-		return c.String(http.StatusBadRequest, "Missing companion API configuration headers")
-	}
-
-	err := db.AddGroupTask(db.TaskTypePlaylistDownload, playlistID, playlistName, companionAPIKey, companionBaseURL, "user")
+	err := db.AddGroupTask(db.TaskTypePlaylistDownload, playlistID, playlistName, "user")
 	if err != nil {
 		c.Logger().Errorf("Failed to add group task: %v", err)
 		if len(err.Error()) > 24 && err.Error()[:24] == "UNIQUE constraint failed" {
@@ -87,12 +80,6 @@ func GetSettingsHandler(c echo.Context) error {
 }
 
 func UpdateSettingsHandler(c echo.Context) error {
-	companionAPIKey := c.Request().Header.Get("x-companion-api-key")
-	companionBaseURL := c.Request().Header.Get("x-companion-base-url")
-
-	if companionBaseURL == "" || companionAPIKey == "" {
-		return c.String(http.StatusBadRequest, "Missing companion API configuration headers")
-	}
 
 	var req SettingsRequest
 	if err := c.Bind(&req); err != nil {

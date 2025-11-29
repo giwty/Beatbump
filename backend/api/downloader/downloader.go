@@ -153,11 +153,11 @@ func fetchPlaylistTracks(playlistID string) ([]TrackInfo, error) {
 	return tracks, nil
 }
 
-func downloadTrack(track TrackInfo, downloadPath, playlistFolder, companionBaseURL string, companionAPIKey *string) (string, error) {
+func downloadTrack(track TrackInfo, downloadPath, playlistFolder string) (string, error) {
 	log.Printf("Downloading %s - %s", track.Artist, track.Title)
 
 	// 1. Get Stream Info
-	streamUrl, contentLength, err := getStreamInfo(track.VideoID, companionBaseURL, companionAPIKey)
+	streamUrl, contentLength, err := getStreamInfo(track.VideoID)
 	if err != nil {
 		return "", err
 	}
@@ -188,8 +188,8 @@ func downloadTrack(track TrackInfo, downloadPath, playlistFolder, companionBaseU
 	return finalFilePath, nil
 }
 
-func getStreamInfo(videoID, companionBaseURL string, companionAPIKey *string) (string, int64, error) {
-	responseBytes, err := yt_api.Player(videoID, "", yt_api.IOS_MUSIC, nil, companionBaseURL, companionAPIKey)
+func getStreamInfo(videoID string) (string, int64, error) {
+	responseBytes, err := yt_api.Player(videoID, "", yt_api.IOS_MUSIC, nil)
 	if err != nil {
 		return "", 0, err
 	}
@@ -525,7 +525,7 @@ func HandleSongTask(track *db.SongTask) {
 	}
 
 	// Step 1: Download the track (always as .m4a)
-	absolutePath, err := downloadTrack(trackInfo, fullDownloadPath, playlistFolder, groupTask.CompanionBaseURL, &groupTask.CompanionAPIKey)
+	absolutePath, err := downloadTrack(trackInfo, fullDownloadPath, playlistFolder)
 	if err != nil {
 		log.Printf("Failed to download track %s: %v", track.Title, err)
 		db.UpdateSongTaskStatus(int(track.GroupTaskID), track.VideoID, db.TaskStatusFailed)
