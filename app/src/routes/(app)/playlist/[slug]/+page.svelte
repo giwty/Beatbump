@@ -38,7 +38,7 @@
 		key,
 	} = data;
 
-	$: ctoken = continuations?.continuation || null;
+	$: ctoken = continuations?.token || null;
 	$: itct = continuations?.clickTrackingParams || undefined;
 	let width = 640;
 	let pageTitle = header?.title || "";
@@ -74,15 +74,8 @@
 			`/api/v1/playlist.json` +
 				"?ref=" +
 				id +
-				`${
-					carouselContinuations
-						? `&ctoken=${encodeURIComponent(
-								continuations.token || carouselContinuations?.continuation,
-						  )}`
-						: ""
-				}` +
-				"&itct=" +
-				carouselContinuations?.clickTrackingParams,
+				"&ctoken=" +
+				encodeURIComponent(ctoken)
 		);
 		const data = await response.json();
 
@@ -95,15 +88,19 @@
 		}
 
 		if (data?.continuations) {
-			ctoken = data.continuations.continuation || data.continuations.token;
+			ctoken = data.continuations.token || data.continuations.continuation;
 			itct = data.continuations.clickTrackingParams || itct;
+			hasData = false;
+		} else {
+			hasData = true;
+			ctoken = null;
+			itct = undefined;
 		}
 	};
 	const getContinuation = async () => {
 		if (isLoading || hasData) return;
 		if (!itct || !ctoken) {
 			getCarousel();
-			hasData = true;
 			return;
 		}
 

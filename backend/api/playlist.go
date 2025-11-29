@@ -6,9 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-
-	"strings"
-
 	"github.com/labstack/echo/v4"
 )
 

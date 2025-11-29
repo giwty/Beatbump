@@ -137,46 +137,42 @@ func GetAllGroupTasks() ([]GroupTask, error) {
 		return nil, err
 	}
 
-	// Fetch all song statuses to aggregate counts
-	type SongStatus struct {
+	// Optimized: Use SQL aggregation to get counts per group task
+	type TaskCounts struct {
 		GroupTaskID uint
-		Status      string
+		Total       int
+		Processed   int
+		Failed      int
 	}
-	var songStatuses []SongStatus
-	if err := DB.Model(&SongTask{}).Select("group_task_id, status").Find(&songStatuses).Error; err != nil {
+
+	var counts []TaskCounts
+	err := DB.Model(&SongTask{}).
+		Select(`
+			group_task_id,
+			COUNT(*) as total,
+			SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as processed,
+			SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed
+		`).
+		Group("group_task_id").
+		Scan(&counts).Error
+
+	if err != nil {
 		return nil, err
 	}
 
-	// Aggregate counts
-	type Counts struct {
-		Total     int
-		Processed int
-		Failed    int
-	}
-	countsMap := make(map[uint]*Counts)
-
-	for _, s := range songStatuses {
-		if _, exists := countsMap[s.GroupTaskID]; !exists {
-			countsMap[s.GroupTaskID] = &Counts{}
-		}
-		c := countsMap[s.GroupTaskID]
-		c.Total++
-		if s.Status == TaskStatusCompleted {
-			c.Processed++
-		} else if s.Status == TaskStatusFailed {
-			c.Failed++
-		}
+	// Create a map for O(1) lookup
+	countsMap := make(map[uint]TaskCounts)
+	for _, c := range counts {
+		countsMap[c.GroupTaskID] = c
 	}
 
-	// Assign counts and format names
+	// Assign counts to tasks
 	for i := range tasks {
-		t := &tasks[i]
-		if c, ok := countsMap[t.ID]; ok {
-			t.TotalTracks = c.Total
-			t.Processed = c.Processed
-			t.Failed = c.Failed
+		if c, ok := countsMap[tasks[i].ID]; ok {
+			tasks[i].TotalTracks = c.Total
+			tasks[i].Processed = c.Processed
+			tasks[i].Failed = c.Failed
 		}
-
 	}
 
 	return tasks, nil
