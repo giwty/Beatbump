@@ -4,8 +4,6 @@ import (
 	"log"
 	"os"
 	"time"
-
-	"github.com/dop251/goja/file"
 	"github.com/glebarez/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -53,7 +51,7 @@ type Setting struct {
 func InitDB() {
 	var err error
 	dbPath := os.Getenv("BEATBUMP_DB_PATH")
-	dsn := "file:"+dbPath+file.FileSeparator+"beatbump.db?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)"
+	dsn := "file:"+filepath.Join(dbPath, "beatbump.db")+"?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)")
 
 	DB, err = gorm.Open(sqlite.Open(dsn), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Silent),
