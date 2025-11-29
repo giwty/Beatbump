@@ -11,7 +11,7 @@
             "mode": "auto",
             "program": "${workspaceFolder}",
             "env": {
-                "BEATBUMP_DB_PATH": "./db",
+                "BEATBUMP_DB_PATH": "",
                 "COMPANION_URL": "http://companion:8282",
                 "COMPANION_SECRET_KEY": "abcd123apikeykey"
             }
