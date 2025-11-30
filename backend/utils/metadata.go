@@ -45,7 +45,14 @@ func FetchMetadata(artist, title string) (*AudioMetadata, error) {
 	// Construct query
 	query := fmt.Sprintf("%s %s", cleanArtist, cleanTitle)
 	encodedQuery := url.QueryEscape(query)
-	apiURL := fmt.Sprintf("https://itunes.apple.com/search?term=%s&entity=song&limit=1", encodedQuery)
+	// Detect country based on script to improve search results
+	countryCode := detectStoreCountry(query)
+	countryParam := ""
+	if countryCode != "" {
+		countryParam = fmt.Sprintf("&country=%s", countryCode)
+	}
+
+	apiURL := fmt.Sprintf("https://itunes.apple.com/search?term=%s&entity=song&limit=1%s", encodedQuery, countryParam)
 
 	resp, err := http.Get(apiURL)
 	if err != nil {
@@ -98,4 +105,28 @@ func cleanString(s string) string {
 	s = reFeat.ReplaceAllString(s, "")
 
 	return strings.TrimSpace(s)
+}
+
+// detectStoreCountry returns an iTunes country code based on the script detected in the string.
+// Returns empty string if no specific script is detected (defaults to US/Global).
+func detectStoreCountry(s string) string {
+	for _, r := range s {
+		switch {
+		case r >= 0x0590 && r <= 0x05FF: // Hebrew
+			return "IL"
+		case r >= 0x0400 && r <= 0x04FF: // Cyrillic
+			return "RU"
+		case r >= 0x0600 && r <= 0x06FF: // Arabic
+			return "EG"
+		case r >= 0x3040 && r <= 0x309F: // Hiragana
+			return "JP"
+		case r >= 0x30A0 && r <= 0x30FF: // Katakana
+			return "JP"
+		case r >= 0x4E00 && r <= 0x9FFF: // CJK Unified Ideographs (Kanji)
+			// CJK is shared, but JP is a good default for music metadata in this context.
+			// Could be refined if needed.
+			return "JP"
+		}
+	}
+	return ""
 }

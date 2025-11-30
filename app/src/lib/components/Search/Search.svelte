@@ -22,7 +22,7 @@
 
 	onMount(() => {
 		if (browser) {
-			const stored = localStorage.getItem('recentSearches');
+			const stored = localStorage.getItem("recentSearches");
 			if (stored) {
 				recentSearches = JSON.parse(stored);
 			}
@@ -32,9 +32,12 @@
 
 	function addToRecentSearches(searchQuery: string) {
 		if (!browser) return;
-		
-		recentSearches = [searchQuery, ...recentSearches.filter(s => s !== searchQuery)].slice(0, 5);
-		localStorage.setItem('recentSearches', JSON.stringify(recentSearches));
+
+		recentSearches = [
+			searchQuery,
+			...recentSearches.filter((s) => s !== searchQuery),
+		].slice(0, 5);
+		localStorage.setItem("recentSearches", JSON.stringify(recentSearches));
 	}
 
 	async function handleSubmit() {
@@ -106,7 +109,7 @@
 		}
 		showRecentSearches = false;
 		const response = await APIClient.fetch(
-            `/api/v1/get_search_suggestions.json?q=` + encodeURIComponent(query),
+			`/api/v1/get_search_suggestions.json?q=` + encodeURIComponent(query),
 		);
 		results = await response.json();
 	}, 250);
@@ -124,7 +127,7 @@
 	<div class="nav-item">
 		<div
 			role="textbox"
-			class="input"
+			class="input search-input-wrapper"
 		>
 			<!-- svelte-ignore a11y-interactive-supports-focus -->
 			<!-- svelte-ignore a11y-click-events-have-key-events -->
@@ -183,7 +186,11 @@
 							}
 						}}
 					>
-						<Icon name="history" size="1rem" style="color: var(--text-secondary);" />
+						<Icon
+							name="history"
+							size="1rem"
+							style="color: var(--text-secondary);"
+						/>
 						{recentQuery}
 					</li>
 				{/each}
@@ -212,7 +219,7 @@
 	{/if}
 	<div class="nav-item">
 		<div
-			class="select"
+			class="select search-select-wrapper"
 			class:inline={type === "inline" ? true : false}
 		>
 			<select bind:value={filter}>
@@ -231,7 +238,7 @@
 
 	.suggestions {
 		position: absolute;
-		top: 4.5em;
+		top: 5.5em;
 		z-index: 200;
 		background: var(--top-bg);
 		width: 100%;
@@ -267,7 +274,7 @@
 
 	form.inline {
 		position: absolute;
-		height: 4em;
+		height: 5em;
 		touch-action: none;
 		display: flex;
 		justify-content: center;
@@ -302,11 +309,12 @@
 			}
 
 			transition: background-color cubic-bezier(0.47, 0, 0.745, 0.715) 80ms;
-			padding: 0.7em 0.5em;
+			padding: 1em 0.8em;
 			z-index: 1;
 			margin: 0;
 			cursor: pointer;
-			font-size: 1em;
+			cursor: pointer;
+			font-size: 1.2em;
 			background: #0000;
 			display: flex;
 			align-items: center;
@@ -315,6 +323,31 @@
 			&:hover {
 				background: rgb(255 255 255 / 10%);
 			}
+		}
+	}
+
+	.search-input-wrapper {
+		height: 3.5em;
+		font-size: 1.1em;
+
+		@media only screen and (max-width: 640px) {
+			height: 3.8em;
+			font-size: 1.2em;
+		}
+	}
+
+	.search-select-wrapper {
+		height: 3.5em;
+		font-size: 1.1em;
+
+		select {
+			height: 100%;
+			font-size: inherit;
+		}
+
+		@media only screen and (max-width: 640px) {
+			height: 3.8em;
+			font-size: 1.2em;
 		}
 	}
 </style>
