@@ -58,9 +58,9 @@ func Browse(browseId string, pageType PageType, params string,
 			Context:  innertubeContext,
 			//ContentCheckOK: true,
 			//RacyCheckOk:    true,
-			BrowseEndpointContextMusicConfig: &BrowseEndpointContextMusicConfig{
-				PageType: string(pageType),
-			},
+			// BrowseEndpointContextMusicConfig: &BrowseEndpointContextMusicConfig{
+			// 	PageType: string(pageType),
+			// },
 		}
 	}
 

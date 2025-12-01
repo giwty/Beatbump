@@ -14,10 +14,11 @@ func TrendingEndpointHandler(c echo.Context) error {
 	if browseId == "" {
 		browseId = "FEmusic_explore"
 	}
+	qparams := c.QueryParam("params")
 	var responseBytes []byte
 	var err error
 
-	responseBytes, err = api.Browse(browseId, api.PageType_MusicPageTypePlaylist, "", nil, nil, nil, api.WebMusic)
+	responseBytes, err = api.Browse(browseId, api.PageType_MusicPageTypePlaylist, qparams, nil, nil, nil, api.WebMusic)
 
 	if err != nil {
 		return c.String(http.StatusInternalServerError, fmt.Sprintf("Error building API request: %s", err))
