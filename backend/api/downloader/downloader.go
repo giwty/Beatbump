@@ -66,12 +66,18 @@ func fetchPlaylistTracks(playlistID string) ([]TrackInfo, error) {
 	var tracks []TrackInfo
 	ctoken := ""
 	itct := ""
-
+	maxIterations := 10
 	for {
 		log.Printf("Fetching playlist %s (ctoken: %s)", playlistID, ctoken)
+		
 		playlistResponse, err := api.GetPlaylist(playlistID, ctoken, itct)
 		if err != nil {
 			return nil, err
+		}
+
+		if len(tracks) > 0 && len(playlistResponse.Tracks) > 0 && *playlistResponse.Tracks[0].VideoId == tracks[0].VideoID {
+			log.Printf("Detected song repetition, breaking")	
+			break
 		}
 
 		for _, item := range playlistResponse.Tracks {
@@ -107,6 +113,11 @@ func fetchPlaylistTracks(playlistID string) ([]TrackInfo, error) {
 					ThumbnailURL: thumbnailURL,
 				})
 			}
+		}
+
+		maxIterations--
+		if maxIterations == 0 {
+			break
 		}
 
 		// Check for continuations
@@ -149,7 +160,7 @@ func fetchPlaylistTracks(playlistID string) ([]TrackInfo, error) {
 			break
 		}
 	}
-
+	log.Printf("Fetched %d tracks for playlist %s", len(tracks), playlistID)
 	return tracks, nil
 }
 
