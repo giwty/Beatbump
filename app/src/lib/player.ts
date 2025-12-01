@@ -771,30 +771,14 @@ export const getSrc = async (
 
 	const currentTrack = SessionListService.value.mix.find(t => t.videoId === videoId);
 	if (currentTrack?.localUrl) {
-		const res = {
-			streamingData: {
-				adaptiveFormats: [
-					{
-						url: currentTrack.localUrl,
-						mimeType: "audio/mp4",
-						bitrate: 128000,
-						contentLength: "0",
-					}
-				]
-			},
-			videoDetails: {
-				title: currentTrack.title,
-				author: currentTrack.artistInfo?.artist?.[0]?.text || "",
-				videoId: currentTrack.videoId,
-				thumbnail: { thumbnails: currentTrack.thumbnails }
-			},
-			playabilityStatus: { status: "OK" }
-		};
-		const formats = sort({
-			data: res as any,
-			dash: false,
-		});
-		return setTrack(formats, shouldAutoplay);
+		const formats = {
+			hls: "",
+			dash: "",
+			streams: [{ url: currentTrack.localUrl	, original_url: currentTrack.localUrl, mimeType: "audio/mp4" }],
+			video: "",
+			duration: -1	
+		}
+		return setTrack(formats, true);
 	}
 
     const res = await APIClient.fetch(`/api/v1/player.json?videoId=${videoId}&playlistId=${playlistId}&playerParams=${params}`).then((response) => {
