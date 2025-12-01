@@ -44,10 +44,31 @@
 	};
 
 	const playTrack = async (track: any) => {
-		await list.initAutoMixSession({
-			videoId: track.VideoID,
-			keyId: 0,
-		});
+		if (track.Status === "completed") {
+			const localUrl = `/api/v1/stream/${track.GroupTaskID}/${track.VideoID}`;
+			const item: any = {
+				videoId: track.VideoID,
+				title: track.Title,
+				artist: track.Artist,
+				artistInfo: { artist: [{ text: track.Artist }] },
+				thumbnails: [{ url: track.ThumbnailURL }],
+				localUrl: localUrl,
+				playlistId: "local",
+			};
+
+			await list.initAutoMixSession({
+				videoId: track.VideoID,
+				keyId: 0,
+				mode: "local",
+				clickedItem: item,
+			});
+		} else {
+			await list.initAutoMixSession({
+				videoId: track.VideoID,
+				keyId: 0,
+				mode: "remote",
+			});
+		}
 	};
 
 	const resumeTask = async (taskId: number) => {

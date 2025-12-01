@@ -44,6 +44,7 @@ interface AutoMixArgs {
     playlistSetVideoId?: string;
     videoId?: string;
     visitorData?: string;
+    mode?: "local" | "remote";
 }
 
 function togglePlayerLoad() {
@@ -333,12 +334,24 @@ export class ListService {
                 visitorData,
                 playlistSetVideoId,
                 videoId,
+                mode = "remote",
             } = args;
             // Wait for the DOM to update
             await tick();
             console.log(args);
             let willRevert = false;
             this.clearNextTrack();
+
+            if (mode === "local") {
+                if (!clickedItem) {
+                    throw new Error("clickedItem is required for local playback");
+                }
+                this.isLocal = true;
+                await this.setMix([clickedItem], "local");
+                await getSrc(videoId, playlistId, undefined, true);
+                return;
+            }
+
             // Reset the current mix state
             if (
                 this._$.value.mix.length &&

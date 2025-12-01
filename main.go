@@ -24,7 +24,6 @@ func main() {
 		HTML5:      true,
 	}))
 
-
 	e.GET("/api/v1/search.json", api.SearchEndpointHandler)
 	e.GET("/api/v1/player.json", api.PlayerEndpointHandler)
 	e.GET("/api/v1/playlist.json", api.PlaylistEndpointHandler)
@@ -49,6 +48,7 @@ func main() {
 	e.POST("/api/v1/downloads/:taskId/pause", api.PauseTaskHandler)
 	e.POST("/api/v1/downloads/:taskId/resume", api.ResumeTaskHandler)
 	e.POST("/api/v1/downloads/:taskId/retry", api.RetryTaskHandler)
+	e.GET("/api/v1/stream/:taskId/:videoId", api.StreamTrackHandler)
 	e.GET("/api/v1/settings", api.GetSettingsHandler)
 	e.POST("/api/v1/settings", api.UpdateSettingsHandler)
 

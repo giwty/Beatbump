@@ -182,8 +182,6 @@ func UpdateGroupTaskStatus(id int, status string) error {
 	}).Error
 }
 
-
-
 func RetryGroupTask(id int) error {
 	return DB.Transaction(func(tx *gorm.DB) error {
 		// Reset failed songs to not_started
@@ -237,6 +235,12 @@ func GetSongTasks(groupTaskID int) ([]SongTask, error) {
 	var songs []SongTask
 	err := DB.Where("group_task_id = ?", groupTaskID).Order("created_at ASC").Find(&songs).Error
 	return songs, err
+}
+
+func GetSongTask(groupTaskID int, videoID string) (*SongTask, error) {
+	var task SongTask
+	err := DB.Where("group_task_id = ? AND video_id = ?", groupTaskID, videoID).First(&task).Error
+	return &task, err
 }
 
 func GetPendingSongTasks() ([]*SongTask, error) {

@@ -54,6 +54,7 @@ export interface Song {
 	playlistSetVideoId?: string;
 	playerParams?: string;
 	musicVideoType?: string;
+	localUrl?: string;
 }
 
 export interface Continuation {
