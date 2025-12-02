@@ -50,10 +50,18 @@
 				videoId: track.VideoID,
 				title: track.Title,
 				artist: track.Artist,
-				artistInfo: { artist: [{ text: track.Artist }] },
-				thumbnails: [{ url: track.ThumbnailURL }],
+				artistInfo: {
+					artist: [
+						{
+							text: track.Artist,
+							browseId: "",
+						},
+					],
+				},
+				thumbnails: track.ThumbnailURL ? [{ url: track.ThumbnailURL }] : [],
 				localUrl: localUrl,
-				playlistId: "local",
+				playlistId: null,
+				autoMixList: null,
 			};
 
 			await list.initAutoMixSession({
@@ -61,6 +69,7 @@
 				keyId: 0,
 				mode: "local",
 				clickedItem: item,
+				playlistId: null,
 			});
 		} else {
 			await list.initAutoMixSession({
