@@ -62,6 +62,104 @@ func PopulateGroupTask(playlistID string, groupTaskID int) {
 	}
 }
 
+func PopulateSongMixTask(groupTaskID int) {
+	log.Printf("Populating song mix for group task %d", groupTaskID)
+
+	// Get the group task to extract videoId from ReferenceID
+	groupTask, err := db.GetGroupTask(groupTaskID)
+	if err != nil {
+		log.Printf("Failed to get group task: %v", err)
+		db.UpdateGroupTaskStatus(groupTaskID, db.TaskStatusFailed)
+		return
+	}
+
+	// Check if already populated
+	existingSongs, err := db.GetSongTasks(groupTaskID)
+	if err != nil {
+		log.Printf("Failed to get song tasks: %v", err)
+		db.UpdateGroupTaskStatus(groupTaskID, db.TaskStatusFailed)
+		return
+	}
+
+	if len(existingSongs) == groupTask.MaxTracks {
+		log.Printf("Group task %d already has %d songs", groupTaskID, len(existingSongs))
+		db.UpdateGroupTaskStatus(groupTaskID, db.TaskStatusCompleted)
+		return
+	}
+
+	if len(existingSongs) != 0 {
+		return
+	}
+
+	// Extract videoId from "song:<videoId>"
+	videoID := groupTask.ReferenceID
+	if len(videoID) > 8 && videoID[:8] == "songmix:" {
+		videoID = videoID[len("songmix:"):]
+	}
+
+	// Call next API to get mix songs
+	err = songMixNext(videoID, groupTaskID, 0)
+	if err != nil {
+		log.Printf("Failed to get mix songs: %v", err)
+		db.UpdateGroupTaskStatus(groupTaskID, db.TaskStatusFailed)
+		return
+	}
+}
+
+func songMixNext(videoID string, groupTaskID int, mixIndex int) error {
+	params := map[string]string{}
+	responseBytes, err := yt_api.Next(videoID, "RDAMVM"+videoID, yt_api.IOS_MUSIC, params)
+	if err != nil {
+		log.Printf("Failed to fetch next for %s: %v", videoID, err)
+		db.UpdateGroupTaskStatus(groupTaskID, db.TaskStatusFailed)
+		return err
+	}
+
+	var nextResponse _youtube.NextResponse
+	err = json.Unmarshal(responseBytes, &nextResponse)
+	if err != nil {
+		log.Printf("Failed to unmarshal next response: %v", err)
+		db.UpdateGroupTaskStatus(groupTaskID, db.TaskStatusFailed)
+		return err
+	}
+
+	parsedResponse := api.ParseNextBody(nextResponse)
+
+	if len(parsedResponse.Results) == 0 {
+		log.Printf("No results returned from next API for %s", videoID)
+		db.UpdateGroupTaskStatus(groupTaskID, db.TaskStatusFailed)
+		return err
+	}
+
+	if mixIndex >= len(parsedResponse.Results) {
+		log.Printf("Mix index %d is out of bounds for %s", mixIndex, videoID)
+		return err
+	}
+
+	// Add the first song (index 0) which is the seed song
+	firstTrack := parsedResponse.Results[mixIndex]
+
+	title := firstTrack.Title
+	artist := ""
+	if len(firstTrack.ArtistInfo.Artist) > 0 {
+		artist = firstTrack.ArtistInfo.Artist[0].Text
+	}
+	thumbnail := ""
+	if len(firstTrack.Thumbnails) > 0 {
+		thumbnail = firstTrack.Thumbnails[0].URL
+	}
+
+	err = db.AddSongTask(groupTaskID, firstTrack.VideoID, title, artist, "", thumbnail)
+	if err != nil {
+		log.Printf("Failed to add initial song %s to task: %v", title, err)
+		db.UpdateGroupTaskStatus(groupTaskID, db.TaskStatusFailed)
+		return err
+	}
+
+	log.Printf("Added song to mix: %s - %s", artist, title)
+	return nil
+}
+
 func fetchPlaylistTracks(playlistID string) ([]TrackInfo, error) {
 	var tracks []TrackInfo
 	ctoken := ""
@@ -69,14 +167,14 @@ func fetchPlaylistTracks(playlistID string) ([]TrackInfo, error) {
 	maxIterations := 10
 	for {
 		log.Printf("Fetching playlist %s (ctoken: %s)", playlistID, ctoken)
-		
+
 		playlistResponse, err := api.GetPlaylist(playlistID, ctoken, itct)
 		if err != nil {
 			return nil, err
 		}
 
 		if len(tracks) > 0 && len(playlistResponse.Tracks) > 0 && *playlistResponse.Tracks[0].VideoId == tracks[0].VideoID {
-			log.Printf("Detected song repetition, breaking")	
+			log.Printf("Detected song repetition, breaking")
 			break
 		}
 
@@ -559,7 +657,7 @@ func HandleSongTask(track *db.SongTask) {
 	relativePath := filepath.Join(playlistFolder, filepath.Base(finalPath))
 	finalizeTask(track, relativePath, playlistName, fullDownloadPath)
 
-	// Step 4: Recursive Fetching for Song Download Tasks
+	// Step 4:  Fetching for Song Download Tasks
 	if groupTask.Type == db.TaskTypeSongMixDownload && groupTask.MaxTracks > 0 {
 		// Check how many songs we have
 		songs, err := db.GetSongTasks(int(groupTask.ID))
@@ -576,45 +674,11 @@ func HandleSongTask(track *db.SongTask) {
 }
 
 func fetchAndAddNextSong(groupTask *db.GroupTask, currentVideoID string) {
-	// Call Next API
-	params := map[string]string{}
-	responseBytes, err := yt_api.Next(currentVideoID, "RDAMVM"+currentVideoID, yt_api.IOS_MUSIC, params)
+	err := songMixNext(currentVideoID, int(groupTask.ID), 1)
 	if err != nil {
 		log.Printf("Failed to fetch next song for %s: %v", currentVideoID, err)
 		return
 	}
-
-	var nextResponse _youtube.NextResponse
-	err = json.Unmarshal(responseBytes, &nextResponse)
-	if err != nil {
-		log.Printf("Failed to unmarshal next response: %v", err)
-		return
-	}
-
-	parsedResponse := api.ParseNextBody(nextResponse)
-
-	if len(parsedResponse.Results) <= 2 {
-		return
-	}
-
-	nextTrack := parsedResponse.Results[1]
-
-	// This is the next one!
-	title := nextTrack.Title
-
-	artist := nextTrack.ArtistInfo.Artist[1].Text
-	thumbnail := nextTrack.Thumbnails[1].URL
-
-	trackInfo := TrackInfo{
-		VideoID:      nextTrack.VideoID,
-		Title:        title,
-		Artist:       artist,
-		ThumbnailURL: thumbnail,
-	}
-
-	log.Printf("Adding related song: %s - %s", trackInfo.Artist, trackInfo.Title)
-	db.AddSongTask(int(groupTask.ID), trackInfo.VideoID, trackInfo.Title, trackInfo.Artist, trackInfo.Album, trackInfo.ThumbnailURL)
-
 }
 
 func resolveDownloadDirectory(groupTask *db.GroupTask, downloadPath string) (string, string, string) {

@@ -11,9 +11,9 @@ import (
 
 func TestNext(t *testing.T) {
 	// Playlist ID provided by the user
-	videoId := "_fW2rw8SwoA"
+	videoId := "FcRBUd_gJBg"
 	paramsMap := map[string]string{}
-	responseBytes, err := api.Next(videoId, "", api.WebMusic, paramsMap)
+	responseBytes, err := api.Next(videoId, "RDAMVM"+videoId, api.WebMusic, paramsMap)
 
 	var nextResponse _youtube.NextResponse
 	err = json.Unmarshal(responseBytes, &nextResponse)

@@ -9,7 +9,7 @@
 >
     import {APIClient} from "$lib/api";
 
-    type StoreSubscriptions = {
+	type StoreSubscriptions = {
 		$startIndex?: number;
 		$queue?: ISessionListService["mix"];
 		$list?: ISessionListProvider;
@@ -227,11 +227,19 @@
 				}
 				dispatch("change");
 			})
-            .add(window.location.href.indexOf("playlists") != -1 ? "Remove From Playlist" : undefined, async () => {
-                let playListId = window.location.href.split("/").pop()
-                await deleteSongFromPlaylist(playListId, item.videoId);
-                dispatch("change");
-            })
+			.add(
+				window.location.href.indexOf("playlists") != -1
+					? "Remove From Playlist"
+					: undefined,
+				async () => {
+					let playListId = window.location.href.split("/").pop();
+					await deleteSongFromPlaylist(playListId, item.videoId);
+					dispatch("change");
+				},
+			)
+			.add("Download", () => {
+				showDownloadSongPopper.set({ state: true, item });
+			})
 			.add("Favorite", () => {
 				IDBService.sendMessage("create", "favorite", item);
 			})

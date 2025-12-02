@@ -93,6 +93,8 @@
 	import {
 		playerLoading,
 		showGroupSessionCreator,
+		showAddToPlaylistPopper,
+		showDownloadSongPopper,
 	} from "$stores/stores";
 	import { PopperButton } from "../Popper";
 	import Controls from "./Controls.svelte";

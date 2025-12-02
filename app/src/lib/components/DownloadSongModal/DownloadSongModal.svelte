@@ -18,11 +18,7 @@
 		try {
 			const params = new URLSearchParams({
 				videoId: item.videoId,
-				title: item.title,
 				limit: limit.toString(),
-				artist: item.artistInfo?.artist?.[0]?.text || "",
-				album: item.album?.title || "",
-				thumbnailUrl: item.thumbnails?.[item.thumbnails.length - 1]?.url || "",
 			});
 
 			const res = await APIClient.fetch(

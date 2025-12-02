@@ -24,6 +24,8 @@ func StartWorker() {
 					log.Printf("Processing group task %d: %s", groupTask.ID, groupTask.Type)
 					if groupTask.Type == db.TaskTypePlaylistDownload {
 						PopulateGroupTask(groupTask.ReferenceID, int(groupTask.ID))
+					} else if groupTask.Type == db.TaskTypeSongMixDownload {
+						PopulateSongMixTask(int(groupTask.ID))
 					} else {
 						log.Printf("Unknown task type: %s", groupTask.Type)
 						db.UpdateGroupTaskStatus(int(groupTask.ID), db.TaskStatusFailed)
