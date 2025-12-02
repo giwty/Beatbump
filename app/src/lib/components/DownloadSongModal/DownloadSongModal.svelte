@@ -18,6 +18,7 @@
 		try {
 			const params = new URLSearchParams({
 				videoId: item.videoId,
+				title: item.title,
 				limit: limit.toString(),
 			});
 

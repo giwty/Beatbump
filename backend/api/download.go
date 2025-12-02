@@ -41,6 +41,7 @@ func DownloadPlaylistHandler(c echo.Context) error {
 func DownloadSongMixHandler(c echo.Context) error {
 	videoID := c.QueryParam("videoId")
 	limitStr := c.QueryParam("limit")
+	title := c.QueryParam("title")
 
 	if videoID == "" {
 		return c.String(http.StatusBadRequest, "Video ID is required")
@@ -64,7 +65,7 @@ func DownloadSongMixHandler(c echo.Context) error {
 	// Use videoID as the referenceID
 	referenceID := "songmix:" + videoID
 
-	err := db.AddGroupTask(db.TaskTypeSongMixDownload, referenceID, "Song mix "+videoID, "user", limit)
+	err := db.AddGroupTask(db.TaskTypeSongMixDownload, referenceID, "Song mix "+title+" ("+limitStr+" songs)", "user", limit)
 	if err != nil {
 		c.Logger().Errorf("Failed to add song mix task: %v", err)
 		if len(err.Error()) > 24 && err.Error()[:24] == "UNIQUE constraint failed" {
