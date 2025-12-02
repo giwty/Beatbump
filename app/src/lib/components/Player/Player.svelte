@@ -72,15 +72,7 @@
                 list.shuffle($queuePosition, true);
             })
             .add("Download", async () => {
-               // var mediaStream = AudioPlayer.player?.captureStream();
-               // var url = webkitURL.createObjectURL(mediaStream);
-                const aelem = document.createElement("a");
-                document.body.appendChild(aelem);
-                aelem.setAttribute("href", AudioPlayer.player?.currentSrc);
-                aelem.setAttribute("target","_blank")
-               // aelem.setAttribute("download", "video.mp3");
-                aelem.click();
-                document.body.removeChild(aelem);
+                showDownloadSongPopper.set({ state: true, item: $currentTrack });
             })
             .build()
             .filter(Boolean);
@@ -100,7 +92,6 @@
 	import { IDBService } from "$lib/workers/db/service";
 	import {
 		playerLoading,
-		showAddToPlaylistPopper,
 		showGroupSessionCreator,
 	} from "$stores/stores";
 	import { PopperButton } from "../Popper";

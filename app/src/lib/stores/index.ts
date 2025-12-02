@@ -14,6 +14,7 @@ export {
 	preferWebM,
 	preserveSearch,
 	showAddToPlaylistPopper,
+	showDownloadSongPopper,
 	showGroupSessionCreator,
 	showGroupSessionManager,
 	theme,

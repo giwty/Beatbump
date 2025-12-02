@@ -43,6 +43,7 @@ func main() {
 
 	// Download & Settings
 	e.GET("/api/v1/download/playlist", api.DownloadPlaylistHandler)
+	e.GET("/api/v1/download/song", api.DownloadSongMixHandler)
 	e.GET("/api/v1/downloads", api.GetDownloadsHandler)
 	e.GET("/api/v1/downloads/:taskId/tracks", api.GetTaskTracksHandler)
 	e.POST("/api/v1/downloads/:taskId/pause", api.PauseTaskHandler)

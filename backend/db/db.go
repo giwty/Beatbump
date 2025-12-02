@@ -3,12 +3,13 @@ package db
 import (
 	"log"
 	"os"
+	"path/filepath"
 	"time"
+
 	"github.com/glebarez/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	"gorm.io/gorm/logger"
-	"path/filepath"
 )
 
 // ...
@@ -29,6 +30,9 @@ type GroupTask struct {
 	TotalTracks int `gorm:"-"`
 	Processed   int `gorm:"-"`
 	Failed      int `gorm:"-"`
+
+	// New field for song download limit
+	MaxTracks int `gorm:"default:0"`
 }
 
 type SongTask struct {
@@ -75,13 +79,14 @@ func InitDB() {
 
 // Group Task Functions
 
-func AddGroupTask(taskType, referenceID, playlistName, source string) error {
+func AddGroupTask(taskType, referenceID, playlistName, source string, maxTracks int) error {
 	task := GroupTask{
-		Type:             taskType,
-		ReferenceID:      referenceID,
-		Status:           TaskStatusPending,
-		PlaylistName:     playlistName,
-		Source:           source,
+		Type:         taskType,
+		ReferenceID:  referenceID,
+		Status:       TaskStatusPending,
+		PlaylistName: playlistName,
+		Source:       source,
+		MaxTracks:    maxTracks,
 	}
 	return DB.Create(&task).Error
 }

@@ -1,7 +1,7 @@
 .modal {
 	position: absolute;
 
-	padding: 1rem 1.75rem;
+	padding: 0.75rem 1rem;
 	z-index: 1001;
 	background: var(--mobile-popper-bg);
 	display: flex;
@@ -11,7 +11,6 @@
 	left: 50%;
 	min-width: 45vw;
 	width: 100%;
-	min-height: 50%;
 	max-width: 85vw;
 	max-height: 90%;
 	border-radius: $lg-radius;

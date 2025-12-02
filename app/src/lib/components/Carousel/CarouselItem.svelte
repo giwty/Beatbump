@@ -4,9 +4,9 @@
 	context="module"
 	lang="ts"
 >
-    import {APIClient} from "$lib/api";
+	import { APIClient } from "$lib/api";
 
-    const RE_ALBUM_PLAYLIST_SINGLE = /PLAYLIST|ALBUM|SINGLE/;
+	const RE_ALBUM_PLAYLIST_SINGLE = /PLAYLIST|ALBUM|SINGLE/;
 	const RE_THUMBNAIL_DIM = /=w\d+-h\d+-/gm;
 
 	const imageErrorHandler = (event: Event) => {
@@ -106,7 +106,7 @@
 			const { item } = ctx;
 			if (item.endpoint?.pageType.match(RE_ALBUM_PLAYLIST_SINGLE)) {
 				const response = await APIClient.fetch(
-                    `/api/v1/get_queue.json?playlistId=` + item.playlistId,
+					`/api/v1/get_queue.json?playlistId=` + item.playlistId,
 				);
 				const data = await response.json();
 				const items: Item[] = data;
@@ -139,6 +139,10 @@
 				notify("Failed to share: " + error, "error");
 			}
 		},
+		download: (ctx: BuildMenuParams) => {
+			const { item } = ctx;
+			showDownloadSongPopper.set({ state: true, item });
+		},
 	};
 	const buildMenu = (ctx: BuildMenuParams) =>
 		buildDropdown()
@@ -163,6 +167,7 @@
 					ctx,
 				),
 			)
+			.add("Download", MENU_HANDLERS.download.bind(MENU_HANDLERS.download, ctx))
 			.add("Share", MENU_HANDLERS.share.bind(MENU_HANDLERS.share, ctx))
 			.build();
 </script>
@@ -186,6 +191,7 @@
 	import {
 		showAddToPlaylistPopper,
 		showGroupSessionCreator,
+		showDownloadSongPopper,
 	} from "$stores/stores";
 	import { SITE_ORIGIN_URL } from "$stores/url";
 	import { tick } from "svelte";

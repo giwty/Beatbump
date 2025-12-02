@@ -7,8 +7,9 @@
 
     import {Popper} from "$lib/components/Popper";
 
-    import PlaylistPopper from "$lib/components/PlaylistPopper";
-    import "@fontsource-variable/commissioner";
+	import PlaylistPopper from "$lib/components/PlaylistPopper";
+	import DownloadSongModal from "$lib/components/DownloadSongModal/DownloadSongModal.svelte";
+	import "@fontsource-variable/commissioner";
 
     import {browser, dev} from "$app/environment";
     import {afterNavigate} from "$app/navigation";
@@ -198,9 +199,10 @@ left: 0; background: var(--base-bg); font-size: 1.1rem; display: flex; flex-dire
 		showAddToPlaylistPopper.set({ state: false, item: {} });
 	}}
 />
-<GroupSessionCreator/>
-<Alert --alert-bottom={hasplayer ? "5.75em" : "0rem"}/>
-<Fullscreen state={isFullscreen ? "open" : "closed"}/>
+<DownloadSongModal />
+<GroupSessionCreator />
+<Alert --alert-bottom={hasplayer ? "5.75em" : "0rem"} />
+<Fullscreen state={isFullscreen ? "open" : "closed"} />
 <footer
     class="footer-container"
     class:show-player={hasplayer}

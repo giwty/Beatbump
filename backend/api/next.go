@@ -63,7 +63,7 @@ func NextEndpointHandler(c echo.Context) error {
 	}
 
 	if continuation == "" {
-		parsedResponse := parseNextBody(nextResponse)
+		parsedResponse := ParseNextBody(nextResponse)
 		return c.JSON(http.StatusOK, parsedResponse)
 	} /*else {
 		parsedResponse = parseContinuationNextBody(nextResponse)
@@ -72,7 +72,7 @@ func NextEndpointHandler(c echo.Context) error {
 	return c.JSON(http.StatusOK, struct{}{})
 }
 
-func parseNextBody(nextResponse _youtube.NextResponse) NextEndpointResponse {
+func ParseNextBody(nextResponse _youtube.NextResponse) NextEndpointResponse {
 	tabs := nextResponse.Contents.SingleColumnMusicWatchNextResultsRenderer.TabbedRenderer.WatchNextTabbedResultsRenderer.Tabs
 	if len(tabs) < 3 {
 		return NextEndpointResponse{}
@@ -188,9 +188,3 @@ type Item struct {
 	ClickTrackingParams string      `json:"clickTrackingParams"`
 }
 
-/*func parseNextBodyContinuation(data NextEndpointResponse) interface{} {
-	// Implement your parsing logic for the continuation body based on the provided SvelteKit code
-	// ...
-
-	return nil
-}*/

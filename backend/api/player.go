@@ -127,7 +127,7 @@ func handleTrackdownloadTask(playlistId string, playerResponse _youtube.PlayerRe
 
 			if task == nil {
 				// Create task
-				db.AddGroupTask(db.TaskTypeOngoingDownload, refID, playlistName, db.TaskSourceSystem)
+				db.AddGroupTask(db.TaskTypeOngoingDownload, refID, playlistName, db.TaskSourceSystem, -1)
 				task, _ = db.GetGroupTaskByReferenceID(refID)
 			}
 

@@ -7,7 +7,6 @@
 	context="module"
 	lang="ts"
 >
-	import { deleteSongFromPlaylist } from "$lib/workers/db/db";
     import {APIClient} from "$lib/api";
 
     type StoreSubscriptions = {
@@ -162,7 +161,7 @@
 				videoId: item?.videoId,
 				index: $startIndex || index,
 				playlistId: item.playlistId!,
-				loggingContext: item?.loggingContext,
+				loggingContext: item?.loggingContext as any,
 				params: item?.playerParams,
 				playlistSetVideoId: item?.playlistSetVideoId,
 				visitorData,
@@ -224,7 +223,7 @@
 					const items: Item[] = data;
 					showAddToPlaylistPopper.set({ state: true, item: [...items] });
 				} else {
-					showAddToPlaylistPopper.set({ state: true, item: item });
+					showAddToPlaylistPopper.set({ state: true, item });
 				}
 				dispatch("change");
 			})
@@ -296,6 +295,7 @@
 		isPagePlaying,
 		queue,
 		showAddToPlaylistPopper,
+		showDownloadSongPopper,
 	} from "$lib/stores";
 	import type { Item } from "$lib/types";
 	import { Logger, notify } from "$lib/utils";
@@ -337,7 +337,7 @@
 		parentPlaylistId = "",
 		page: currentCtx,
 	} = CTX_ListItem.get()!;
-	$: page = $listItemPageContext;
+	$: page = $listItemPageContext as PageContext;
 	const DropdownItems = buildMenu({
 		item,
 		idx,
@@ -383,7 +383,7 @@
 					position,
 					{ $list, $queue, $startIndex: idx },
 					page,
-					visitorData,
+					visitorData || undefined,
 				);
 				break;
 			}
@@ -394,7 +394,7 @@
 					position,
 					{ $list, $queue, $startIndex },
 					page,
-					visitorData,
+					visitorData || undefined,
 				);
 				break;
 			case "library":
@@ -408,7 +408,7 @@
 					position,
 					{ $list, $queue, $startIndex },
 					page,
-					visitorData,
+					visitorData || undefined,
 				);
 
 				break;
@@ -497,7 +497,7 @@
 				{#if Array.isArray(item.subtitle)}
 					{#each item.subtitle as subtitle}
 						{#if subtitle?.browseId}
-							{#if subtitle.pageType.includes("ARTIST")}
+							{#if subtitle.pageType && subtitle.pageType.includes("ARTIST")}
 								<a
 									class="artist secondary"
 									href={`/artist/${subtitle.browseId}`}

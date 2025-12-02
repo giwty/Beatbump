@@ -558,6 +558,63 @@ func HandleSongTask(track *db.SongTask) {
 	// Step 3: Finalize the task
 	relativePath := filepath.Join(playlistFolder, filepath.Base(finalPath))
 	finalizeTask(track, relativePath, playlistName, fullDownloadPath)
+
+	// Step 4: Recursive Fetching for Song Download Tasks
+	if groupTask.Type == db.TaskTypeSongMixDownload && groupTask.MaxTracks > 0 {
+		// Check how many songs we have
+		songs, err := db.GetSongTasks(int(groupTask.ID))
+		if err == nil {
+			// We want 1 (original) + MaxTracks (related)
+			targetTotal := 1 + groupTask.MaxTracks
+			if len(songs) < targetTotal {
+				log.Printf("Fetching related song %d/%d for task %d", len(songs), targetTotal, groupTask.ID)
+				go fetchAndAddNextSong(groupTask, track.VideoID)
+			}
+		}
+	}
+
+}
+
+func fetchAndAddNextSong(groupTask *db.GroupTask, currentVideoID string) {
+	// Call Next API
+	params := map[string]string{}
+	responseBytes, err := yt_api.Next(currentVideoID, "RDAMVM"+currentVideoID, yt_api.IOS_MUSIC, params)
+	if err != nil {
+		log.Printf("Failed to fetch next song for %s: %v", currentVideoID, err)
+		return
+	}
+
+	var nextResponse _youtube.NextResponse
+	err = json.Unmarshal(responseBytes, &nextResponse)
+	if err != nil {
+		log.Printf("Failed to unmarshal next response: %v", err)
+		return
+	}
+
+	parsedResponse := api.ParseNextBody(nextResponse)
+
+	if len(parsedResponse.Results) <= 2 {
+		return
+	}
+
+	nextTrack := parsedResponse.Results[1]
+
+	// This is the next one!
+	title := nextTrack.Title
+
+	artist := nextTrack.ArtistInfo.Artist[1].Text
+	thumbnail := nextTrack.Thumbnails[1].URL
+
+	trackInfo := TrackInfo{
+		VideoID:      nextTrack.VideoID,
+		Title:        title,
+		Artist:       artist,
+		ThumbnailURL: thumbnail,
+	}
+
+	log.Printf("Adding related song: %s - %s", trackInfo.Artist, trackInfo.Title)
+	db.AddSongTask(int(groupTask.ID), trackInfo.VideoID, trackInfo.Title, trackInfo.Artist, trackInfo.Album, trackInfo.ThumbnailURL)
+
 }
 
 func resolveDownloadDirectory(groupTask *db.GroupTask, downloadPath string) (string, string, string) {
@@ -575,6 +632,16 @@ func resolveDownloadDirectory(groupTask *db.GroupTask, downloadPath string) (str
 		playlistFolder := filepath.Join("Ongoing Listening", safePlaylistName)
 		fullDownloadPath := filepath.Join(downloadPath, playlistFolder)
 
+		return fullDownloadPath, playlistFolder, playlistName
+	}
+
+	if groupTask.Type == db.TaskTypeSongMixDownload {
+		// Format: {Song Title}-{MaxTracks}
+		// If MaxTracks is 0, maybe just {Song Title}?
+		// The requirement said: "All the songs will be stored under the same folder with the song title then dash and the number of related songs"
+		folderName := fmt.Sprintf("%s mix-(%d songs)", playlistName, groupTask.MaxTracks)
+		playlistFolder := sanitizeFilename(folderName)
+		fullDownloadPath := filepath.Join(downloadPath, playlistFolder)
 		return fullDownloadPath, playlistFolder, playlistName
 	}
 

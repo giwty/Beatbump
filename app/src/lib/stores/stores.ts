@@ -80,7 +80,19 @@ export const playerLoading = writable(false);
 
 export const showAddToPlaylistPopper = writable<{
 	state: boolean;
-	item?: Item | Item[] | unknown;
-}>({ state: false });
+	item: Item | Item[] | undefined;
+}>({
+	state: false,
+	item: undefined,
+});
+
+export const showDownloadSongPopper = writable<{
+	state: boolean;
+	item: Item | undefined;
+}>({
+	state: false,
+	item: undefined,
+});
+
 export const showGroupSessionManager = writable<boolean>(false);
 export const showGroupSessionCreator = writable<boolean>(false);

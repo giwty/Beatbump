@@ -13,6 +13,7 @@ const (
 // Task Types
 const (
 	TaskTypePlaylistDownload = "playlist_download"
+	TaskTypeSongMixDownload  = "song_mix_download"
 	TaskTypeOngoingDownload  = "ongoing_download"
 )
 

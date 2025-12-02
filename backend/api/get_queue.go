@@ -29,7 +29,7 @@ func GetQueueHandler(c echo.Context) error {
 		return errors.New(fmt.Sprintf("Error building API request: %s", err))
 	}
 
-	parsedResponse := parseNextBody(nextResponse)
+	parsedResponse := ParseNextBody(nextResponse)
 	return c.JSON(http.StatusOK, parsedResponse)
 
 }

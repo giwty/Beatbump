@@ -6,7 +6,7 @@ import staticadapter from "@sveltejs/adapter-static";
 import vercel from "@sveltejs/adapter-vercel";
 import path from "path";
 import sveltePreprocess from "svelte-preprocess";
-import {fileURLToPath} from "url";
+import { fileURLToPath } from "url";
 
 
 const dev = process.env["NODE_ENV"] === "development";
@@ -18,7 +18,7 @@ const adapters = {
     cloudflare: adapterCf(),
     vercel: vercel({}),
     netlify: netlify({}),
-    node: node({"precompress": false}),
+    node: node({ "precompress": false }),
     staticadapter: staticadapter({
         pages: 'build',
         assets: 'build',
@@ -37,33 +37,33 @@ const config = {
         scss: {
             includePaths: ["./src/"],
 
-            prependData: `@use "src/global/redesign/base/_variables.scss" as *;`,            stripIndent: true,
+            prependData: `@use "global/redesign/base/_variables.scss" as *;`, stripIndent: true,
         },
-        postcss: {configFilePath: path.resolve("./postcss.config.cjs")},
+        postcss: { configFilePath: path.resolve("./postcss.config.cjs") },
     }),
 
     kit: {
-        adapter: dev ? node() : adapters["staticadapter"], env: {dir: '../'},
+        adapter: dev ? node() : adapters["staticadapter"], env: { dir: '../' },
         alias: {
             $stores: path.resolve("./src/lib/stores"),
             $api: path.resolve("./src/routes/(app)/api/_lib"),
             $components: path.resolve("./src/lib/components"),
         },
-        prerender: {concurrency: 3},
+        prerender: { concurrency: 3 },
         files: {
             assets: "static",
             lib: "src/lib",
             routes: "src/routes",
-          //  serviceWorker: "src/service-worker",
+            //  serviceWorker: "src/service-worker",
             appTemplate: "src/app.html",
-           // hooks: {server: "src/hooks.server"},
+            // hooks: {server: "src/hooks.server"},
         },
         csp: {
             directives: {
                 'frame-ancestors': ['self', ENV_IFRAME ? '*' : '']
             }
         },
-        version: {pollInterval: 600000},
+        version: { pollInterval: 600000 },
     },
     onwarn(warning, defaultHandler) {
         if (warning.code === "css-unused-selector") return;
