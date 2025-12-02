@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math/rand"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -136,22 +137,64 @@ func songMixNext(videoID string, groupTaskID int, mixIndex int) error {
 		return err
 	}
 
-	// Add the first song (index 0) which is the seed song
-	firstTrack := parsedResponse.Results[mixIndex]
 
-	title := firstTrack.Title
+	if mixIndex == -1 {
+			// Get existing songs to check for duplicates
+		existingSongs, err := db.GetSongTasks(groupTaskID)
+		if err != nil {
+			log.Printf("Failed to get existing songs: %v", err)
+			return err
+		}
+		// Build a set of existing video IDs for fast lookup
+		existingVideoIDs := make(map[string]bool)
+		for _, song := range existingSongs {
+			existingVideoIDs[song.VideoID] = true
+		}
+
+		// Create a shuffled list of indices to try
+		indices := make([]int, len(parsedResponse.Results))
+		for i := range indices {
+			indices[i] = i
+		}
+		// Shuffle using Fisher-Yates
+		for i := len(indices) - 1; i > 0; i-- {
+			j := rand.Intn(i + 1)
+			indices[i], indices[j] = indices[j], indices[i]
+		}
+		found:= false
+		// Try to add a song, moving through shuffled indices
+		for _, idx := range indices {
+			track := parsedResponse.Results[idx]
+
+			// Check if this video ID already exists
+			if existingVideoIDs[track.VideoID] {
+				log.Printf("Song %s already exists in mix, trying next random song", track.VideoID)
+				continue
+			}
+			mixIndex = idx
+			found = true
+			break
+		}
+		if !found {
+			log.Printf("All songs in mix results already exist, cannot add more")
+			return fmt.Errorf("all songs already exist in mix")
+		}
+	}
+
+	track := parsedResponse.Results[mixIndex]
+	title := track.Title
 	artist := ""
-	if len(firstTrack.ArtistInfo.Artist) > 0 {
-		artist = firstTrack.ArtistInfo.Artist[0].Text
+	if len(track.ArtistInfo.Artist) > 0 {
+		artist = track.ArtistInfo.Artist[0].Text
 	}
 	thumbnail := ""
-	if len(firstTrack.Thumbnails) > 0 {
-		thumbnail = firstTrack.Thumbnails[0].URL
+	if len(track.Thumbnails) > 0 {
+		thumbnail = track.Thumbnails[0].URL
 	}
 
-	err = db.AddSongTask(groupTaskID, firstTrack.VideoID, title, artist, "", thumbnail)
+	err = db.AddSongTask(groupTaskID, track.VideoID, title, artist, "", thumbnail)
 	if err != nil {
-		log.Printf("Failed to add initial song %s to task: %v", title, err)
+		log.Printf("Failed to add mix song %s to task: %v", title, err)
 		db.UpdateGroupTaskStatus(groupTaskID, db.TaskStatusFailed)
 		return err
 	}
@@ -674,7 +717,7 @@ func HandleSongTask(track *db.SongTask) {
 }
 
 func fetchAndAddNextSong(groupTask *db.GroupTask, currentVideoID string) {
-	err := songMixNext(currentVideoID, int(groupTask.ID), 1)
+	err := songMixNext(currentVideoID, int(groupTask.ID), -1)
 	if err != nil {
 		log.Printf("Failed to fetch next song for %s: %v", currentVideoID, err)
 		return
