@@ -636,6 +636,7 @@ export class ListService {
                         true,
                     );
                 // await this.prefetchTrackAtIndex(state.position + 1);
+                }
             }
             const position = this._$.value.position;
             if (update) {
