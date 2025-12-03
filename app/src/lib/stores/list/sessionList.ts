@@ -417,14 +417,16 @@ export class ListService {
                     },
                 );
                 await tick();
+                const selectedVideoId = videoId ||
+                    item?.videoId ||
+                    data.results[0]?.videoId;
+
+                if (!selectedVideoId) {
+                    throw new Error("No valid videoId found for playback");
+                }
+
                 await getSrc(
-                    videoId
-                        ? videoId
-                        : item?.videoId
-                            ? item.videoId
-                            : data.results[0]
-                                ? data.results[0]?.videoId
-                                : undefined,
+                    selectedVideoId,
                     item?.playlistId || playlistId,
                     config?.playerParams,
                 );
@@ -998,7 +1000,7 @@ const queuePosition = derived<typeof SessionListService, number>(
 );
 
 const related = (() => {
-    const prevPosition = undefined;
+    let prevPosition: number | undefined = undefined;
     const { subscribe } = derived<
         typeof SessionListService,
         RelatedEndpointResponse
@@ -1006,6 +1008,7 @@ const related = (() => {
         try {
             (async () => {
                 if ($list.position === prevPosition) return;
+                prevPosition = $list.position;
                 if ($list.related !== null) {
                     await APIClient.fetch(
                         `/api/v1/related.json?browseId=${$list.related?.browseId}`,
