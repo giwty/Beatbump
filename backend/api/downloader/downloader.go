@@ -96,8 +96,8 @@ func PopulateSongMixTask(groupTaskID int) {
 	if len(seedVideoID) > 8 && seedVideoID[:8] == "songmix:" {
 		seedVideoID = seedVideoID[len("songmix:"):]
 	}
-	i := 0
-	for i < groupTask.MaxTracks {
+	tracksAdded := map[string]api.Item{}
+	for len(tracksAdded) < groupTask.MaxTracks {
 		tracks, err := songMixNext(seedVideoID, groupTaskID)
 		if err != nil {
 			log.Printf("Failed to get mix songs: %v", err)
@@ -105,6 +105,10 @@ func PopulateSongMixTask(groupTaskID int) {
 		}
 
 		for _, track := range tracks {
+			if _, ok := tracksAdded[track.VideoID]; ok {
+				continue
+			}
+			
 			title := track.Title
 			seedVideoID = track.VideoID
 			artist := ""
@@ -119,19 +123,13 @@ func PopulateSongMixTask(groupTaskID int) {
 			err = db.AddSongTask(groupTaskID, track.VideoID, title, artist, "", thumbnail)
 			if err != nil {
 				log.Printf("Failed to add mix song %s to task: %v", title, err)
-				//db.UpdateGroupTaskStatus(groupTaskID, db.TaskStatusFailed)
-				//return err
 			}else{
 				log.Printf("Added song to mix: %s - %s", artist, title)
-				i++
-			}
-
-			if i >= groupTask.MaxTracks {
-				break
+				tracksAdded[track.VideoID] = track
 			}
 		}
 	}
-	log.Printf("Populated %d songs for group task %d", i, groupTaskID)
+	log.Printf("Populated %d songs for group task %d", len(tracksAdded), groupTaskID)
 }
 
 func songMixNext(videoID string, groupTaskID int) ([]api.Item, error) {
