@@ -224,7 +224,14 @@
 								<span class="value error">{task.Failed}</span>
 							</div>
 						</div>
-
+						{#if task.Processed > 0}
+							<button
+								class="action-btn"
+								on:click={() => playAllTracks(task.ID)}
+							>
+								Play All
+							</button>
+						{/if}
 						<div
 							class="status"
 							class:completed={task.Status === "completed"}
@@ -275,14 +282,7 @@
 							{/if}
 						</div>
 					{/if}
-					{#if task.Processed > 0}
-						<button
-							class="action-btn"
-							on:click={() => playAllTracks(task.ID)}
-						>
-							Play All
-						</button>
-					{/if}
+					
 				</div>
 			{/each}
 		</div>
