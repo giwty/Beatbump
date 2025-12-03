@@ -345,14 +345,14 @@ class AudioPlayerImpl extends EventEmitter<AudioPlayerEvents> {
 			? "fastSeek" in this.player
 				? this.player.fastSeek
 				: // eslint-disable-next-line @typescript-eslint/no-unused-vars
-				  (_number: number) => {
-						//
-						// eslint-disable-next-line @typescript-eslint/no-unused-vars
-				  }
-			: // eslint-disable-next-line @typescript-eslint/no-unused-vars
-			  (_number: number) => {
+				(_number: number) => {
 					//
-			  };
+					// eslint-disable-next-line @typescript-eslint/no-unused-vars
+				}
+			: // eslint-disable-next-line @typescript-eslint/no-unused-vars
+			(_number: number) => {
+				//
+			};
 	}
 
 	public get durationStore() {
@@ -479,11 +479,11 @@ class AudioPlayerImpl extends EventEmitter<AudioPlayerEvents> {
 	public async updateSrc({
 		url,
 		videoUrl,
-        duration
+		duration
 	}: {
 		videoUrl?: string;
 		url: string;
-        duration?: number;
+		duration?: number;
 	}) {
 		if (url === undefined) return;
 
@@ -498,12 +498,14 @@ class AudioPlayerImpl extends EventEmitter<AudioPlayerEvents> {
 		}
 
         if (duration != undefined && duration != -1){
-            this._durationStore.set(duration / 1000);
-            setPosition(
-                0,
-                duration / 1000,
-            );
-        }
+			this._durationStore.set(duration / 1000);
+			setPosition(
+				0,
+				duration / 1000,
+			);
+		} else {
+			this._durationStore.set(0);
+		}
 
 		this.nextSrc.url = undefined;
 		this.setStaleTimeout();
@@ -552,7 +554,7 @@ class AudioPlayerImpl extends EventEmitter<AudioPlayerEvents> {
 		if (
 			this._repeat === "playlist" &&
 			SessionListService.$.value.position >=
-				SessionListService.$.value.mix.length - 1
+			SessionListService.$.value.mix.length - 1
 		) {
 			await SessionListService.updatePosition(1);
 			await SessionListService.previous();
@@ -610,8 +612,8 @@ class AudioPlayerImpl extends EventEmitter<AudioPlayerEvents> {
 				});
 
 			await this.videoPlayer?.play();
-            this._paused.set(false);
-            this.play();
+			this._paused.set(false);
+			this.play();
 			await tick();
 			groupSession.resetAllCanPlay();
 
@@ -622,7 +624,9 @@ class AudioPlayerImpl extends EventEmitter<AudioPlayerEvents> {
 			/*const duration = isAppleMobileDevice
 				? this.player.duration / 2
 				: this.player.duration;*/
-			//this._durationStore.set(this.player.duration);
+			if (this._durationStore.value === 0) {
+				this._durationStore.set(this.player.duration);
+			}
 
 			if (syncTabs.role === "host") {
 				syncTabs.updatePosition(SessionListService.position);
@@ -713,9 +717,9 @@ class AudioPlayerImpl extends EventEmitter<AudioPlayerEvents> {
 		});
 
 
-        this.on("update:stream_type", async ({ type }) => {
-            this.setType(type);
-        });
+		this.on("update:stream_type", async ({ type }) => {
+			this.setType(type);
+		});
 
 		// If there's any actions (eg: set volume) that take place before
 		// we're setup, they'll be put in the taskQueue - process them here
@@ -763,9 +767,9 @@ export const getSrc = async (
 	shouldAutoplay = true,
 ): Promise<
 	| {
-			body: ResponseBody | null;
-			error: boolean;
-	  }
+		body: ResponseBody | null;
+		error: boolean;
+	}
 	| undefined
 > => {
 
@@ -776,37 +780,37 @@ export const getSrc = async (
 			dash: "",
 			streams: [{ url: currentTrack.localUrl	, original_url: currentTrack.localUrl, mimeType: "audio/mp4" }],
 			video: "",
-			duration: -1	
+			duration: -1
 		}
 		return setTrack(formats, true);
 	}
 
-    const res = await APIClient.fetch(`/api/v1/player.json?videoId=${videoId}&playlistId=${playlistId}&playerParams=${params}`).then((response) => {
-       if (!response.ok) {
-           return response.text().then(message => {
-               throw new Error(message); // Throw a new error with the response text
-           });
-        }
-        return response.json();
-    })
-        .catch((message) => {
-            console.error(message);
-            return message;
-        });
-    if (
+	const res = await APIClient.fetch(`/api/v1/player.json?videoId=${videoId}&playlistId=${playlistId}&playerParams=${params}`).then((response) => {
+		if (!response.ok) {
+			return response.text().then(message => {
+				throw new Error(message); // Throw a new error with the response text
+			});
+		}
+		return response.json();
+	})
+		.catch((message) => {
+			console.error(message);
+			return message;
+		});
+	if (
         !res || res instanceof Error ||(res &&
-        !res?.streamingData &&
-        res?.playabilityStatus?.status === "UNPLAYABLE")
-    ) {
-        return handleError(res.message);
-    }
-    const formats = sort({
-        data: res,
-        dash: false,
-    });
+			!res?.streamingData &&
+			res?.playabilityStatus?.status === "UNPLAYABLE")
+	) {
+		return handleError(res.message);
+	}
+	const formats = sort({
+		data: res,
+		dash: false,
+	});
 
-    const src = setTrack(formats, shouldAutoplay);
-    return src;
+	const src = setTrack(formats, shouldAutoplay);
+	return src;
 }
 
 function setTrack(formats: PlayerFormats, shouldAutoplay: boolean) {
@@ -821,7 +825,7 @@ function setTrack(formats: PlayerFormats, shouldAutoplay: boolean) {
 			video_url: formats.video,
 			original_url: format.original_url,
 			url: format.url,
-            duration: formats.duration
+			duration: formats.duration
 		});
 	return {
 		body: format
@@ -835,7 +839,7 @@ function handleError(message: string) {
 	console.log("error");
 
 	notify(
-        message || "An error occurred while initiating playback, skipping...",
+		message || "An error occurred while initiating playback, skipping...",
 		"error",
 		"getNextTrack",
 	);
