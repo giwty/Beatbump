@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import {APIParams} from "$lib/constants";
+import { APIParams } from "$lib/constants";
 // eslint-disable-next-line import/no-cycle
-import {getSrc, updateGroupPosition, updatePlayerSrc} from "$lib/player";
+import { getSrc, updateGroupPosition, updatePlayerSrc } from "$lib/player";
 import type {
     Artist,
     ArtistInfo,
@@ -10,7 +10,7 @@ import type {
     Subtitle,
     Thumbnail,
 } from "$lib/types";
-import type {VssLoggingContext} from "$lib/types/innertube/internals";
+import type { VssLoggingContext } from "$lib/types/innertube/internals";
 import {
     Logger,
     WritableStore,
@@ -19,18 +19,18 @@ import {
     seededShuffle,
     type ResponseBody,
 } from "$lib/utils";
-import {splice} from "$lib/utils/collections/array";
-import {objectKeys} from "$lib/utils/collections/objects";
-import {Mutex} from "$lib/utils/sync";
-import {tick} from "svelte";
+import { splice } from "$lib/utils/collections/array";
+import { objectKeys } from "$lib/utils/collections/objects";
+import { Mutex } from "$lib/utils/sync";
+import { tick } from "svelte";
 // eslint-disable-next-line import/no-cycle
-import {syncTabs} from "$lib/tabSync";
-import {derived} from "svelte/store";
-import {groupSession} from "../sessions";
-import {filterAutoPlay, playerLoading} from "../stores";
-import type {ISessionListProvider} from "./types.list";
-import {fetchNext, filterList} from "./utils.list";
-import {APIClient} from "$lib/api";
+import { syncTabs } from "$lib/tabSync";
+import { derived } from "svelte/store";
+import { groupSession } from "../sessions";
+import { filterAutoPlay, playerLoading } from "../stores";
+import type { ISessionListProvider } from "./types.list";
+import { fetchNext, filterList } from "./utils.list";
+import { APIClient } from "$lib/api";
 
 const mutex = new Mutex();
 
@@ -45,6 +45,7 @@ interface AutoMixArgs {
     videoId?: string;
     visitorData?: string;
     mode?: "local" | "remote";
+    localItems?: Item[];
 }
 
 function togglePlayerLoad() {
@@ -256,8 +257,7 @@ export class ListService {
 
         try {
             if (!clickTrackingParams && !ctoken) {
-                playlistId = `RDAMPL${
-                    playlistId ? playlistId : this.currentMixId ?? ""
+                playlistId = `RDAMPL${playlistId ? playlistId : this.currentMixId ?? ""
                     }`;
             }
 
@@ -273,13 +273,13 @@ export class ListService {
                 videoId,
                 playlistId,
                 index: key ?? undefined,
-                ...(ctoken && {continuation: ctoken}),
+                ...(ctoken && { continuation: ctoken }),
                 clickTracking: clickTrackingParams,
             };
             const data = await fetchNext(params);
 
             if (!data || !Array.isArray(data.results)) {
-                await this.getMoreLikeThis({playlistId});
+                await this.getMoreLikeThis({ playlistId });
                 return;
             }
 
@@ -343,11 +343,12 @@ export class ListService {
             this.clearNextTrack();
 
             if (mode === "local") {
-                if (!clickedItem) {
-                    throw new Error("clickedItem is required for local playback");
+                const itemsToPlay = args.localItems || (clickedItem ? [clickedItem] : []);
+                if (itemsToPlay.length === 0) {
+                    throw new Error("clickedItem or localItems is required for local playback");
                 }
                 this.isLocal = true;
-                await this.setMix([clickedItem], "local");
+                await this.setMix(itemsToPlay, "local");
                 await getSrc(videoId, playlistId, undefined, true);
                 return;
             }
@@ -371,7 +372,7 @@ export class ListService {
                 const data = await fetchNext({
                     params: config?.playerParams ? config?.playerParams : undefined,
                     videoId,
-                    ...(visitorData && {visitorData}),
+                    ...(visitorData && { visitorData }),
                     playlistId: playlistId ? playlistId : `RDAMVM${videoId}`,
                     loggingContext: loggingContext
                         ? loggingContext.vssLoggingContext?.serializedContextData
@@ -497,7 +498,7 @@ export class ListService {
 
             if (!data.results.length) {
                 Logger.dev("NO RESULTS LENGTH!!!");
-                this.getMoreLikeThis({playlistId});
+                this.getMoreLikeThis({ playlistId });
             } else {
                 const state = await this.#sanitizeAndUpdate("APPLY", {
                     ...data,
@@ -626,7 +627,7 @@ export class ListService {
                             clickTracking: this.clickTrackingParams,
                         }),
                     });
-                if (!data) return console.log("no data on next", {data});
+                    if (!data) return console.log("no data on next", { data });
 
                     const state = await this.#sanitizeAndUpdate("APPLY", data);
                     await getSrc(
@@ -635,7 +636,7 @@ export class ListService {
                         undefined,
                         true,
                     );
-                // await this.prefetchTrackAtIndex(state.position + 1);
+                    // await this.prefetchTrackAtIndex(state.position + 1);
                 }
             }
             const position = this._$.value.position;
@@ -680,7 +681,7 @@ export class ListService {
                     ?.vssLoggingContext?.serializedContextData,
                 videoId: this.#currentTrack(this.position)?.videoId,
                 playlistId: this.currentMixId,
-            ...(this.continuation && {continuation: this?.continuation}),
+                ...(this.continuation && { continuation: this?.continuation }),
                 ...(this.clickTrackingParams && {
                     clickTracking: this.clickTrackingParams,
                 }),
@@ -785,7 +786,7 @@ export class ListService {
             ];
         }
         // console.log(mix)
-        this.#sanitizeAndUpdate("APPLY", {mix: this._$.value.mix}).then(
+        this.#sanitizeAndUpdate("APPLY", { mix: this._$.value.mix }).then(
             (state) => {
                 if (groupSession?.initialized && groupSession?.hasActiveSession) {
                     groupSession.updateGuestTrackQueue(state);
@@ -829,7 +830,7 @@ export class ListService {
                 .reduce((prev, cur) => (prev += cur), 0),
         );
 
-        this.#sanitizeAndUpdate("SET", {mix: this._$.value.mix}).then((state) => {
+        this.#sanitizeAndUpdate("SET", { mix: this._$.value.mix }).then((state) => {
             if (groupSession?.initialized && groupSession?.hasActiveSession) {
                 groupSession.updateGuestTrackQueue(state);
             }
@@ -950,9 +951,9 @@ export class ListService {
 
                         Object.assign(this._state, old);
 
-                        resolve({...old, ...this._state} as ISessionListProvider);
+                        resolve({ ...old, ...this._state } as ISessionListProvider);
                     } else {
-                        let {mix} = to;
+                        let { mix } = to;
                         const toKeys = objectKeys(to);
 
                         if (!mix) mix = [];
@@ -998,7 +999,7 @@ const queuePosition = derived<typeof SessionListService, number>(
 
 const related = (() => {
     const prevPosition = undefined;
-    const {subscribe} = derived<
+    const { subscribe } = derived<
         typeof SessionListService,
         RelatedEndpointResponse
     >(SessionListService, ($list, set) => {
@@ -1017,7 +1018,7 @@ const related = (() => {
             Logger.err(err);
         }
     });
-    return {subscribe};
+    return { subscribe };
 })();
 
-export {currentTrack, queue, queuePosition, related};
+export { currentTrack, queue, queuePosition, related };

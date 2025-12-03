@@ -82,6 +82,55 @@
 		}
 	};
 
+	const playAllTracks = async (taskId: number) => {
+		// Fetch tracks for this task if not already loaded
+		if (expandedTaskID !== taskId) {
+			await fetchTaskTracks(taskId);
+		}
+
+		// Filter only completed tracks
+		const completedTracks = taskTracks.filter(
+			(track) => track.Status === "completed",
+		);
+
+		if (completedTracks.length === 0) {
+			return;
+		}
+
+		// Convert all tracks to Item objects
+		const items = completedTracks.map((track) => {
+			const localUrl = `/api/v1/stream/${track.GroupTaskID}/${track.VideoID}`;
+			const title = track.Title || track.title || "Unknown Title";
+			const artist = track.Artist || track.artist || "Unknown Artist";
+			return {
+				videoId: track.VideoID,
+				title: title,
+				artist: artist,
+				artistInfo: {
+					artist: [
+						{
+							text: artist,
+							browseId: "",
+						},
+					],
+				},
+				thumbnails: track.ThumbnailURL ? [{ url: track.ThumbnailURL }] : [],
+				localUrl: localUrl,
+				playlistId: null,
+				autoMixList: null,
+			};
+		});
+
+		// Play all tracks
+		await list.initAutoMixSession({
+			videoId: items[0].videoId,
+			keyId: 0,
+			mode: "local",
+			localItems: items,
+			playlistId: null,
+		});
+	};
+
 	const resumeTask = async (taskId: number) => {
 		await APIClient.post(`/api/v1/downloads/${taskId}/resume`, {});
 		fetchTasks();
@@ -225,6 +274,14 @@
 								{/each}
 							{/if}
 						</div>
+					{/if}
+					{#if task.Processed > 0}
+						<button
+							class="action-btn"
+							on:click={() => playAllTracks(task.ID)}
+						>
+							Play All
+						</button>
 					{/if}
 				</div>
 			{/each}
