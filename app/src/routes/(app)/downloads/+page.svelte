@@ -46,14 +46,16 @@
 	const playTrack = async (track: any) => {
 		if (track.Status === "completed") {
 			const localUrl = `/api/v1/stream/${track.GroupTaskID}/${track.VideoID}`;
+			const title = track.Title || track.title || "Unknown Title";
+			const artist = track.Artist || track.artist || "Unknown Artist";
 			const item: any = {
 				videoId: track.VideoID,
-				title: track.Title,
-				artist: track.Artist,
+				title: title,
+				artist: artist,
 				artistInfo: {
 					artist: [
 						{
-							text: track.Artist,
+							text: artist,
 							browseId: "",
 						},
 					],

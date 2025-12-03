@@ -135,11 +135,11 @@ export class ListService {
     }
 
     private findIndexForTrack({
-                                  originalVideoId,
-                                  originalIndex,
-                                  originalPlaylistId,
-                                  mix,
-                              }: {
+        originalVideoId,
+        originalIndex,
+        originalPlaylistId,
+        mix,
+    }: {
         originalIndex?: number;
         originalVideoId?: string;
         originalPlaylistId?: string;
@@ -165,8 +165,8 @@ export class ListService {
     }
 
     public async getMoreLikeThis({
-                                     playlistId,
-                                 }: {
+        playlistId,
+    }: {
         playlistId?: string;
     }): Promise<void> {
         const toggle = togglePlayerLoad();
@@ -258,7 +258,7 @@ export class ListService {
             if (!clickTrackingParams && !ctoken) {
                 playlistId = `RDAMPL${
                     playlistId ? playlistId : this.currentMixId ?? ""
-                }`;
+                    }`;
             }
 
             const params: Parameters<typeof fetchNext>["0"] = {
@@ -269,7 +269,7 @@ export class ListService {
                 playlistSetVideoId:
                     playlistSetVideoId ?? this._$.value.mix[key]?.playlistSetVideoId,
                 loggingContext:
-                loggingContext?.vssLoggingContext?.serializedContextData,
+                    loggingContext?.vssLoggingContext?.serializedContextData,
                 videoId,
                 playlistId,
                 index: key ?? undefined,
@@ -551,8 +551,9 @@ export class ListService {
         const nextTrack = this._$.value.mix[this._$.value.position + 1];
 
         if (!nextTrack) {
+            if (this.isLocal) return; // Don't fetch more for local
             const currentTrack = this._$.value.mix[this._$.value.position];
-            Logger.dev("No next track", {nextSrc, _$: this._$});
+            Logger.dev("No next track", { nextSrc, _$: this._$ });
             await this.getSessionContinuation(
                 {
                     videoId: currentTrack?.videoId,
@@ -599,32 +600,41 @@ export class ListService {
                 if (position >= this._$.value.mix.length) {
                     position = this._$.value.position;
                 }
-                const currentTrack = this.#currentTrack(position);
-                const data = await fetchNext({
-                    ...(this._$.value?.visitorData && {
-                        visitorData: this._$.value.visitorData,
-                    }),
-                    params: "gAQBiAQB",
-                    playlistSetVideoId: currentTrack?.playlistSetVideoId,
-                    index: position,
-                    loggingContext:
-                    currentTrack?.loggingContext?.vssLoggingContext
-                        ?.serializedContextData,
-                    videoId: currentTrack?.videoId,
-                    playlistId: this.currentMixId,
-                    ...(this?.clickTrackingParams && {
-                        clickTracking: this.clickTrackingParams,
-                    }),
-                });
+
+                if (this.isLocal) {
+                    await getSrc(
+                        this._$.value.mix[position].videoId,
+                        this._$.value.mix[position].playlistId,
+                        undefined,
+                        true,
+                    );
+                } else {
+                    const currentTrack = this.#currentTrack(position);
+                    const data = await fetchNext({
+                        ...(this._$.value?.visitorData && {
+                            visitorData: this._$.value.visitorData,
+                        }),
+                        params: "gAQBiAQB",
+                        playlistSetVideoId: currentTrack?.playlistSetVideoId,
+                        index: position,
+                        loggingContext:
+                            currentTrack?.loggingContext?.vssLoggingContext
+                                ?.serializedContextData,
+                        videoId: currentTrack?.videoId,
+                        playlistId: this.currentMixId,
+                        ...(this?.clickTrackingParams && {
+                            clickTracking: this.clickTrackingParams,
+                        }),
+                    });
                 if (!data) return console.log("no data on next", {data});
 
-                const state = await this.#sanitizeAndUpdate("APPLY", data);
-                await getSrc(
-                    state.mix[currentPosition + 1].videoId,
-                    state.mix[currentPosition + 1].playlistId,
-                    undefined,
-                    true,
-                );
+                    const state = await this.#sanitizeAndUpdate("APPLY", data);
+                    await getSrc(
+                        state.mix[currentPosition + 1].videoId,
+                        state.mix[currentPosition + 1].playlistId,
+                        undefined,
+                        true,
+                    );
                 // await this.prefetchTrackAtIndex(state.position + 1);
             }
             const position = this._$.value.position;
@@ -649,31 +659,41 @@ export class ListService {
         if (position >= this._$.value.mix.length) {
             position = this._$.value.position;
         }
-        const data = await fetchNext({
-            ...(this._$.value?.visitorData && {
-                visitorData: this._$.value?.visitorData,
-            }),
-            params: "OAHyAQIIAQ==",
-            playlistSetVideoId: this._$.value.mix[this.position]?.playlistSetVideoId,
-            index: this._$.value.position,
-            loggingContext: this.#currentTrack(this.position)?.loggingContext
-                ?.vssLoggingContext?.serializedContextData,
-            videoId: this.#currentTrack(this.position)?.videoId,
-            playlistId: this.currentMixId,
+
+        if (this.isLocal) {
+            await getSrc(
+                this._$.value.mix[position].videoId,
+                this._$.value.mix[position].playlistId,
+                undefined,
+                true,
+            );
+        } else {
+            const data = await fetchNext({
+                ...(this._$.value?.visitorData && {
+                    visitorData: this._$.value?.visitorData,
+                }),
+                params: "OAHyAQIIAQ==",
+                playlistSetVideoId: this._$.value.mix[this.position]?.playlistSetVideoId,
+                index: this._$.value.position,
+                loggingContext: this.#currentTrack(this.position)?.loggingContext
+                    ?.vssLoggingContext?.serializedContextData,
+                videoId: this.#currentTrack(this.position)?.videoId,
+                playlistId: this.currentMixId,
             ...(this.continuation && {continuation: this?.continuation}),
-            ...(this.clickTrackingParams && {
-                clickTracking: this.clickTrackingParams,
-            }),
-        });
-        if (!data) return;
-        if (data.related) this._$.value.related = data.related;
-        const state = await this.#sanitizeAndUpdate("APPLY", data);
-        await getSrc(
-            state.mix[position].videoId,
-            state.mix[position].playlistId,
-            undefined,
-            true,
-        );
+                ...(this.clickTrackingParams && {
+                    clickTracking: this.clickTrackingParams,
+                }),
+            });
+            if (!data) return;
+            if (data.related) this._$.value.related = data.related;
+            const state = await this.#sanitizeAndUpdate("APPLY", data);
+            await getSrc(
+                state.mix[position].videoId,
+                state.mix[position].playlistId,
+                undefined,
+                true,
+            );
+        }
 
         syncTabs.updatePosition(position);
     }
@@ -777,7 +797,7 @@ export class ListService {
     public shuffleRandom(
         items: ({
             subtitle: { text?: string; pageType?: string; browseId?: string }[] &
-                Subtitle[];
+            Subtitle[];
             artistInfo: {
                 pageType?: string;
                 artist?: Artist[];
@@ -870,8 +890,8 @@ export class ListService {
         kind: "APPLY" | "SET",
         to: {
             [Key in keyof ISessionListProvider]?: ISessionListProvider[Key] extends any[]
-                ? MixListAppendOp | Item[]
-                : ISessionListProvider[Key];
+            ? MixListAppendOp | Item[]
+            : ISessionListProvider[Key];
         },
     ) {
         const value = await this._$.updateAsync(
