@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"math/rand"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -29,7 +28,7 @@ type TrackInfo struct {
 	ThumbnailURL string
 }
 
-func PopulateGroupTask(playlistID string, groupTaskID int) {
+func PopulatePlaylistTask(playlistID string, groupTaskID int) {
 	log.Printf("Populating songs for group task %d (Playlist %s)", groupTaskID, playlistID)
 
 	// Phase 1: Populate Tracks if not already populated
@@ -93,27 +92,52 @@ func PopulateSongMixTask(groupTaskID int) {
 	}
 
 	// Extract videoId from "song:<videoId>"
-	videoID := groupTask.ReferenceID
-	if len(videoID) > 8 && videoID[:8] == "songmix:" {
-		videoID = videoID[len("songmix:"):]
+	seedVideoID := groupTask.ReferenceID
+	if len(seedVideoID) > 8 && seedVideoID[:8] == "songmix:" {
+		seedVideoID = seedVideoID[len("songmix:"):]
 	}
 
-	// Call next API to get mix songs
-	err = songMixNext(videoID, groupTaskID, 0)
-	if err != nil {
-		log.Printf("Failed to get mix songs: %v", err)
-		db.UpdateGroupTaskStatus(groupTaskID, db.TaskStatusFailed)
-		return
+	for i := 0; i < groupTask.MaxTracks; {
+		tracks, err := songMixNext(seedVideoID, groupTaskID)
+		if err != nil {
+			log.Printf("Failed to get mix songs: %v", err)
+			break
+		}
+
+		for _, track := range tracks {
+			title := track.Title
+			seedVideoID = track.VideoID
+			artist := ""
+			if len(track.ArtistInfo.Artist) > 0 {
+				artist = track.ArtistInfo.Artist[0].Text
+			}
+			thumbnail := ""
+			if len(track.Thumbnails) > 0 {
+				thumbnail = track.Thumbnails[0].URL
+			}
+
+			err = db.AddSongTask(groupTaskID, track.VideoID, title, artist, "", thumbnail)
+			if err != nil {
+				log.Printf("Failed to add mix song %s to task: %v", title, err)
+				//db.UpdateGroupTaskStatus(groupTaskID, db.TaskStatusFailed)
+				//return err
+			}
+			log.Printf("Added song to mix: %s - %s", artist, title)
+			i++
+			if i >= groupTask.MaxTracks {
+				break
+			}
+		}
 	}
 }
 
-func songMixNext(videoID string, groupTaskID int, mixIndex int) error {
+func songMixNext(videoID string, groupTaskID int) ([]api.Item, error) {
 	params := map[string]string{}
 	responseBytes, err := yt_api.Next(videoID, "RDAMVM"+videoID, yt_api.IOS_MUSIC, params)
 	if err != nil {
 		log.Printf("Failed to fetch next for %s: %v", videoID, err)
 		db.UpdateGroupTaskStatus(groupTaskID, db.TaskStatusFailed)
-		return err
+		return nil, err
 	}
 
 	var nextResponse _youtube.NextResponse
@@ -121,7 +145,7 @@ func songMixNext(videoID string, groupTaskID int, mixIndex int) error {
 	if err != nil {
 		log.Printf("Failed to unmarshal next response: %v", err)
 		db.UpdateGroupTaskStatus(groupTaskID, db.TaskStatusFailed)
-		return err
+		return nil, err
 	}
 
 	parsedResponse := api.ParseNextBody(nextResponse)
@@ -129,78 +153,10 @@ func songMixNext(videoID string, groupTaskID int, mixIndex int) error {
 	if len(parsedResponse.Results) == 0 {
 		log.Printf("No results returned from next API for %s", videoID)
 		db.UpdateGroupTaskStatus(groupTaskID, db.TaskStatusFailed)
-		return err
+		return nil, err
 	}
 
-	if mixIndex >= len(parsedResponse.Results) {
-		log.Printf("Mix index %d is out of bounds for %s", mixIndex, videoID)
-		return err
-	}
-
-
-	if mixIndex == -1 {
-			// Get existing songs to check for duplicates
-		existingSongs, err := db.GetSongTasks(groupTaskID)
-		if err != nil {
-			log.Printf("Failed to get existing songs: %v", err)
-			return err
-		}
-		// Build a set of existing video IDs for fast lookup
-		existingVideoIDs := make(map[string]bool)
-		for _, song := range existingSongs {
-			existingVideoIDs[song.VideoID] = true
-		}
-
-		// Create a shuffled list of indices to try
-		indices := make([]int, len(parsedResponse.Results))
-		for i := range indices {
-			indices[i] = i
-		}
-		// Shuffle using Fisher-Yates
-		for i := len(indices) - 1; i > 0; i-- {
-			j := rand.Intn(i + 1)
-			indices[i], indices[j] = indices[j], indices[i]
-		}
-		found:= false
-		// Try to add a song, moving through shuffled indices
-		for _, idx := range indices {
-			track := parsedResponse.Results[idx]
-
-			// Check if this video ID already exists
-			if existingVideoIDs[track.VideoID] {
-				log.Printf("Song %s already exists in mix, trying next random song", track.VideoID)
-				continue
-			}
-			mixIndex = idx
-			found = true
-			break
-		}
-		if !found {
-			log.Printf("All songs in mix results already exist, cannot add more")
-			return fmt.Errorf("all songs already exist in mix")
-		}
-	}
-
-	track := parsedResponse.Results[mixIndex]
-	title := track.Title
-	artist := ""
-	if len(track.ArtistInfo.Artist) > 0 {
-		artist = track.ArtistInfo.Artist[0].Text
-	}
-	thumbnail := ""
-	if len(track.Thumbnails) > 0 {
-		thumbnail = track.Thumbnails[0].URL
-	}
-
-	err = db.AddSongTask(groupTaskID, track.VideoID, title, artist, "", thumbnail)
-	if err != nil {
-		log.Printf("Failed to add mix song %s to task: %v", title, err)
-		db.UpdateGroupTaskStatus(groupTaskID, db.TaskStatusFailed)
-		return err
-	}
-
-	log.Printf("Added song to mix: %s - %s", artist, title)
-	return nil
+	return parsedResponse.Results, nil
 }
 
 func fetchPlaylistTracks(playlistID string) ([]TrackInfo, error) {
@@ -699,29 +655,6 @@ func HandleSongTask(track *db.SongTask) {
 	// Step 3: Finalize the task
 	relativePath := filepath.Join(playlistFolder, filepath.Base(finalPath))
 	finalizeTask(track, relativePath, playlistName, fullDownloadPath)
-
-	// Step 4:  Fetching for Song Download Tasks
-	if groupTask.Type == db.TaskTypeSongMixDownload && groupTask.MaxTracks > 0 {
-		// Check how many songs we have
-		songs, err := db.GetSongTasks(int(groupTask.ID))
-		if err == nil {
-			// We want 1 (original) + MaxTracks (related)
-			targetTotal := 1 + groupTask.MaxTracks
-			if len(songs) < targetTotal {
-				log.Printf("Fetching related song %d/%d for task %d", len(songs), targetTotal, groupTask.ID)
-				go fetchAndAddNextSong(groupTask, track.VideoID)
-			}
-		}
-	}
-
-}
-
-func fetchAndAddNextSong(groupTask *db.GroupTask, currentVideoID string) {
-	err := songMixNext(currentVideoID, int(groupTask.ID), -1)
-	if err != nil {
-		log.Printf("Failed to fetch next song for %s: %v", currentVideoID, err)
-		return
-	}
 }
 
 func resolveDownloadDirectory(groupTask *db.GroupTask, downloadPath string) (string, string, string) {
