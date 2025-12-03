@@ -1000,15 +1000,14 @@ const queuePosition = derived<typeof SessionListService, number>(
 );
 
 const related = (() => {
-    let prevPosition: number | undefined = undefined;
-    const { subscribe } = derived<
+    const prevPosition = undefined;
+    const {subscribe} = derived<
         typeof SessionListService,
         RelatedEndpointResponse
     >(SessionListService, ($list, set) => {
         try {
             (async () => {
                 if ($list.position === prevPosition) return;
-                prevPosition = $list.position;
                 if ($list.related !== null) {
                     await APIClient.fetch(
                         `/api/v1/related.json?browseId=${$list.related?.browseId}`,
@@ -1021,7 +1020,7 @@ const related = (() => {
             Logger.err(err);
         }
     });
-    return { subscribe };
+    return {subscribe};
 })();
 
 export { currentTrack, queue, queuePosition, related };
