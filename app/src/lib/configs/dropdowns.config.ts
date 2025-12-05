@@ -23,7 +23,7 @@ export type Label =
 	| "Edit Playlist"
 	| "Start Radio"
 	| "Play Album"
-    | "Download"
+	| "Download"
 	| "Invite Group Session"
 	| "Album Radio"
 	| "Remove from Queue";
@@ -52,7 +52,7 @@ const DROPDOWN_TEXTS: ReadonlyArray<Label> = [
 	"Start Radio",
 	"Play Album",
 	"Album Radio",
-    "Download"
+	"Download"
 ];
 
 export type Icons =
@@ -76,8 +76,11 @@ export type Icons =
 	| "list-music"
 	| "volume"
 	| "list-video"
-    | "download"
-	| "dots";
+	| "download"
+	| "dots"
+	| "trash"
+	| "refresh"
+	| "play-circle";
 
 const DROPDOWN_ICONS: ReadonlyArray<Icons> = [
 	"artist",
@@ -97,8 +100,11 @@ const DROPDOWN_ICONS: ReadonlyArray<Icons> = [
 	"list-plus",
 	"list-music",
 	"list-video",
-    "download",
+	"download",
 	"dots",
+	"trash",
+	"refresh",
+	"play-circle",
 ] as const;
 
 export type TypedDropdownItem<T extends Label, I extends Icons = Icons> = {
@@ -110,65 +116,65 @@ export type TypedDropdownItem<T extends Label, I extends Icons = Icons> = {
 export const DROPDOWN_ITEMS: Partial<{
 	[Key in Label]: Partial<TypedDropdownItem<Key, Icons>>;
 }> = {
-	"View Artist": { text: "View Artist", icon: "artist", action: () => {} },
-	"Add to Queue": { text: "Add to Queue", icon: "queue", action: () => {} },
-	"Play Next": { text: "Play Next", icon: "queue", action: () => {} },
-	Favorite: { text: "Favorite", icon: "heart", action: () => {} },
+	"View Artist": { text: "View Artist", icon: "artist", action: () => { } },
+	"Add to Queue": { text: "Add to Queue", icon: "queue", action: () => { } },
+	"Play Next": { text: "Play Next", icon: "queue", action: () => { } },
+	Favorite: { text: "Favorite", icon: "heart", action: () => { } },
 	"Start Group Session": {
 		text: "Start Group Session",
 		icon: "users",
-		action: () => {},
+		action: () => { },
 	},
-	Share: { text: "Share", icon: "share", action: () => {} },
-	"Go to Album": { text: "Go to Album", icon: "album", action: () => {} },
+	Share: { text: "Share", icon: "share", action: () => { } },
+	"Go to Album": { text: "Go to Album", icon: "album", action: () => { } },
 	"Invite Group Session": {
 		text: "Invite Group Session",
 		icon: "send",
-		action: () => {},
+		action: () => { },
 	},
-	"View Playlist": { text: "View Playlist", icon: "list", action: () => {} },
+	"View Playlist": { text: "View Playlist", icon: "list", action: () => { } },
 	"Play Song Radio": {
 		text: "Play Song Radio",
 		icon: "radio",
-		action: () => {},
+		action: () => { },
 	},
 	"Remove From Playlist": {
 		text: "Remove From Playlist",
 		icon: "x",
-		action: () => {},
+		action: () => { },
 	},
 	"Add to Playlist": {
 		text: "Add to Playlist",
 		icon: "list-plus",
-		action: () => {},
+		action: () => { },
 	},
 	"Add to Favorites": {
 		text: "Add to Favorites",
 		icon: "heart",
-		action: () => {},
+		action: () => { },
 	},
-    "Download": {
-        text: "Download",
-        icon: "download",
-        action: () => {},
-    },
+	"Download": {
+		text: "Download",
+		icon: "download",
+		action: () => { },
+	},
 	"Share Group Session": {
 		text: "Share Group Session",
 		icon: "share",
-		action: () => {},
+		action: () => { },
 	},
-	Shuffle: { text: "Shuffle", icon: "shuffle", action: () => {} },
+	Shuffle: { text: "Shuffle", icon: "shuffle", action: () => { } },
 	"Shuffle Playlist": {
 		text: "Shuffle Playlist",
 		icon: "shuffle",
-		action: () => {},
+		action: () => { },
 	},
-	"Album Radio": { text: "Album Radio", icon: "album", action: () => {} },
-	"Edit Playlist": { icon: "edit", text: "Edit Playlist", action: () => {} },
+	"Album Radio": { text: "Album Radio", icon: "album", action: () => { } },
+	"Edit Playlist": { icon: "edit", text: "Edit Playlist", action: () => { } },
 	"Remove from Queue": {
 		icon: "x",
 		text: "Remove from Queue",
-		action: () => {},
+		action: () => { },
 	},
 };
 

@@ -319,3 +319,22 @@ func SetSetting(key, value string) error {
 	setting := Setting{Key: key, Value: value}
 	return DB.Save(&setting).Error // Save handles Insert or Update (Upsert)
 }
+func DeleteGroupTask(id int) error {
+	return DB.Transaction(func(tx *gorm.DB) error {
+		// Delete all song tasks associated with this group task
+		if err := tx.Where("group_task_id = ?", id).Delete(&SongTask{}).Error; err != nil {
+			return err
+		}
+
+		// Delete the group task itself
+		if err := tx.Delete(&GroupTask{}, id).Error; err != nil {
+			return err
+		}
+
+		return nil
+	})
+}
+
+func DeleteSongTask(groupTaskID int, videoID string) error {
+	return DB.Where("group_task_id = ? AND video_id = ?", groupTaskID, videoID).Delete(&SongTask{}).Error
+}

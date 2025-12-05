@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Header from "$lib/components/Layouts/Header.svelte";
+	import Icon from "$lib/components/Icon/Icon.svelte";
 	import { onMount } from "svelte";
 	import { browser } from "$app/environment";
 	import { APIClient } from "$lib/api";
@@ -60,10 +61,15 @@
 						},
 					],
 				},
-				thumbnails: track.ThumbnailURL ? [{ url: track.ThumbnailURL }] : [],
+				thumbnails: track.ThumbnailURL
+					? [{ url: track.ThumbnailURL, width: 0, height: 0 }]
+					: [],
 				localUrl: localUrl,
-				playlistId: null,
-				autoMixList: null,
+				playlistId: undefined,
+				autoMixList: undefined,
+				subtitle: [],
+				explicit: false,
+				aspectRatio: "16:9",
 			};
 
 			await list.initAutoMixSession({
@@ -71,7 +77,7 @@
 				keyId: 0,
 				mode: "local",
 				clickedItem: item,
-				playlistId: null,
+				playlistId: undefined,
 			});
 		} else {
 			await list.initAutoMixSession({
@@ -114,10 +120,15 @@
 						},
 					],
 				},
-				thumbnails: track.ThumbnailURL ? [{ url: track.ThumbnailURL }] : [],
+				thumbnails: track.ThumbnailURL
+					? [{ url: track.ThumbnailURL, width: 0, height: 0 }]
+					: [],
 				localUrl: localUrl,
-				playlistId: null,
-				autoMixList: null,
+				playlistId: undefined,
+				autoMixList: undefined,
+				subtitle: [],
+				explicit: false,
+				aspectRatio: "16:9",
 			};
 		});
 
@@ -127,7 +138,7 @@
 			keyId: 0,
 			mode: "local",
 			localItems: items,
-			playlistId: null,
+			playlistId: undefined,
 		});
 	};
 
@@ -139,6 +150,24 @@
 	const retryTask = async (taskId: number) => {
 		await APIClient.post(`/api/v1/downloads/${taskId}/retry`, {});
 		fetchTasks();
+	};
+
+	const deleteTask = async (taskId: number) => {
+		if (
+			!confirm(
+				"Are you sure you want to delete this download? This will delete all downloaded files.",
+			)
+		)
+			return;
+		await APIClient.del(`/api/v1/downloads/${taskId}`);
+		fetchTasks();
+	};
+
+	const deleteTrack = async (taskId: number, track: any) => {
+		if (!confirm(`Are you sure you want to delete "${track.Title}"?`)) return;
+		await APIClient.del(`/api/v1/downloads/${taskId}/tracks/${track.VideoID}`);
+		// Refresh tracks
+		await fetchTaskTracks(taskId);
 	};
 
 	onMount(() => {
@@ -156,8 +185,14 @@
 	<div class="controls">
 		<button
 			on:click={fetchTasks}
-			class="refresh-btn">Refresh</button
+			class="icon-btn"
+			title="Refresh"
 		>
+			<Icon
+				name="refresh"
+				size="1.5em"
+			/>
+		</button>
 	</div>
 	{#if tasks.length === 0}
 		<p>No downloads found.</p>
@@ -170,76 +205,107 @@
 						class="task parent"
 						on:click={() => toggleTask(task.ID)}
 					>
-						<div class="info">
-							<span class="title"
-								>{task.PlaylistName || "Unknown Playlist"}</span
-							>
-							<span class="meta">ID: {task.ReferenceID}</span>
-							<span class="meta date"
-								>{new Date(task.CreatedAt).toLocaleString()}</span
-							>
+						<div class="task-header">
+							<div class="info">
+								<span class="title"
+									>{task.PlaylistName || "Unknown Playlist"}</span
+								>
+								<span class="meta">ID: {task.ReferenceID}</span>
+								<span class="meta date"
+									>{new Date(task.CreatedAt).toLocaleString()}</span
+								>
+							</div>
+
+							<div class="stats">
+								<div class="stat-item">
+									<span class="label">Total</span>
+									<span class="value">{task.TotalTracks}</span>
+								</div>
+								<div class="stat-item">
+									<span class="label">Done</span>
+									<span class="value success">{task.Processed}</span>
+								</div>
+								<div class="stat-item">
+									<span class="label">Failed</span>
+									<span class="value error">{task.Failed}</span>
+								</div>
+							</div>
 						</div>
 
-						<div
-							class="task-actions"
-							on:click|stopPropagation
-						>
-							{#if task.Status === "processing" || task.Status === "pending"}
-								<button
-									class="action-btn"
-									on:click={() => pauseTask(task.ID)}
-								>
-									Pause
-								</button>
-							{/if}
-							{#if task.Status === "paused"}
-								<button
-									class="action-btn"
-									on:click={() => resumeTask(task.ID)}
-								>
-									Resume
-								</button>
-							{/if}
-							{#if task.Status === "completed" && task.Failed > 0}
-								<button
-									class="action-btn"
-									on:click={() => retryTask(task.ID)}
-								>
-									Retry ({task.Failed} failed)
-								</button>
-							{/if}
-						</div>
-
-						<div class="stats">
-							<div class="stat-item">
-								<span class="label">Total</span>
-								<span class="value">{task.TotalTracks}</span>
-							</div>
-							<div class="stat-item">
-								<span class="label">Done</span>
-								<span class="value success">{task.Processed}</span>
-							</div>
-							<div class="stat-item">
-								<span class="label">Failed</span>
-								<span class="value error">{task.Failed}</span>
-							</div>
-						</div>
-						{#if task.Processed > 0}
-							<button
-								class="action-btn"
-								on:click={() => playAllTracks(task.ID)}
+						<div class="task-footer">
+							<div
+								class="task-actions"
+								on:click|stopPropagation
 							>
-								Play All
-							</button>
-						{/if}
-						<div
-							class="status"
-							class:completed={task.Status === "completed"}
-							class:failed={task.Status === "failed"}
-							class:processing={task.Status === "processing" ||
-								task.Status === "pending"}
-						>
-							{task.Status}
+								{#if task.Status === "processing" || task.Status === "pending"}
+									<button
+										class="icon-btn"
+										on:click={() => pauseTask(task.ID)}
+										title="Pause"
+									>
+										<Icon
+											name="pause"
+											size="1.2em"
+										/>
+									</button>
+								{/if}
+								{#if task.Status === "paused"}
+									<button
+										class="icon-btn"
+										on:click={() => resumeTask(task.ID)}
+										title="Resume"
+									>
+										<Icon
+											name="play"
+											size="1.2em"
+										/>
+									</button>
+								{/if}
+								{#if task.Status === "completed" && task.Failed > 0}
+									<button
+										class="icon-btn"
+										on:click={() => retryTask(task.ID)}
+										title="Retry"
+									>
+										<Icon
+											name="refresh"
+											size="1.2em"
+										/>
+									</button>
+								{/if}
+								<button
+									class="icon-btn delete"
+									on:click={() => deleteTask(task.ID)}
+									title="Delete"
+								>
+									<Icon
+										name="trash"
+										size="1.2em"
+									/>
+								</button>
+							</div>
+
+							{#if task.Processed > 0}
+								<button
+									class="icon-btn"
+									on:click={() => playAllTracks(task.ID)}
+									title="Play All"
+								>
+									<Icon
+										name="play"
+										size="1.2em"
+									/>
+								</button>
+							{/if}
+							<div
+								class="status"
+								class:completed={task.Status === "completed"}
+								class:failed={task.Status === "failed"}
+								class:processing={task.Status === "processing" ||
+									task.Status === "pending"}
+							>
+								{task.Status}
+							</div>
 						</div>
 					</div>
 
@@ -262,11 +328,29 @@
 											<span class="title">{track.Title}</span>
 											<span class="artist">{track.Artist}</span>
 										</div>
-										<div>
+										<div class="child-actions">
+											{#if track.Status === "completed"}
+												<button
+													class="icon-btn"
+													on:click={() => playTrack(track)}
+													title="Play"
+												>
+													<Icon
+														name="play-circle"
+														size="1em"
+													/>
+												</button>
+											{/if}
 											<button
-												class="action-btn"
-												on:click={() => playTrack(track)}>Play</button
+												class="icon-btn delete"
+												on:click={() => deleteTrack(task.ID, track)}
+												title="Delete"
 											>
+												<Icon
+													name="trash"
+													size="1em"
+												/>
+											</button>
 										</div>
 										<div
 											class="status small"
@@ -282,7 +366,6 @@
 							{/if}
 						</div>
 					{/if}
-					
 				</div>
 			{/each}
 		</div>
@@ -340,6 +423,33 @@
 		&.parent {
 			border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 		}
+
+		@media (max-width: 768px) {
+			flex-direction: column;
+			align-items: flex-start;
+			gap: 0.5rem;
+		}
+	}
+
+	.task-header {
+		display: flex;
+		align-items: center;
+		gap: 1rem;
+		flex: 1;
+		width: 100%;
+		justify-content: space-between;
+	}
+
+	.task-footer {
+		display: flex;
+		align-items: center;
+		gap: 1rem;
+
+		@media (max-width: 768px) {
+			width: 100%;
+			justify-content: space-between;
+			margin-top: 0.5rem;
+		}
 	}
 
 	.task-actions {
@@ -348,20 +458,33 @@
 		align-items: center;
 	}
 
-	.action-btn {
-		padding: 0.5rem 1rem;
-		background: #007bff;
-		color: white;
+	.icon-btn {
+		background: transparent;
 		border: none;
-		border-radius: 4px;
+		color: white;
 		cursor: pointer;
-		font-weight: bold;
-		font-size: 0.85rem;
-		transition: background 0.2s;
+		padding: 0.5rem;
+		border-radius: 50%;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		transition: background 0.2s, color 0.2s;
 
 		&:hover {
-			background: #0056b3;
+			background: rgba(255, 255, 255, 0.1);
 		}
+
+		&.delete {
+			color: #ff4d4d;
+			&:hover {
+				background: rgba(255, 77, 77, 0.1);
+			}
+		}
+	}
+
+	.child-actions {
+		display: flex;
+		gap: 0.5rem;
 	}
 
 	.children {

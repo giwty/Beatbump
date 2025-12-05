@@ -49,6 +49,8 @@ func main() {
 	e.POST("/api/v1/downloads/:taskId/pause", api.PauseTaskHandler)
 	e.POST("/api/v1/downloads/:taskId/resume", api.ResumeTaskHandler)
 	e.POST("/api/v1/downloads/:taskId/retry", api.RetryTaskHandler)
+	e.DELETE("/api/v1/downloads/:taskId", api.DeleteTaskHandler)
+	e.DELETE("/api/v1/downloads/:taskId/tracks/:videoId", api.DeleteTrackHandler)
 	e.GET("/api/v1/stream/:taskId/:videoId", api.StreamTrackHandler)
 	e.GET("/api/v1/settings", api.GetSettingsHandler)
 	e.POST("/api/v1/settings", api.UpdateSettingsHandler)

@@ -108,7 +108,7 @@ func PopulateSongMixTask(groupTaskID int) {
 			if _, ok := tracksAdded[track.VideoID]; ok {
 				continue
 			}
-			
+
 			title := track.Title
 			seedVideoID = track.VideoID
 			artist := ""
@@ -273,7 +273,7 @@ func downloadTrack(track TrackInfo, downloadPath, playlistFolder string) (string
 
 	// 2. Build filename and path (always .m4a)
 	baseFilename := fmt.Sprintf("%s - %s", track.Artist, track.Title)
-	filename := sanitizeFilename(baseFilename + ".m4a")
+	filename := utils.SanitizeFilename(baseFilename + ".m4a")
 	finalFilePath := filepath.Join(downloadPath, filename)
 
 	// 3. Create output file
@@ -373,7 +373,7 @@ func convertTrack(track TrackInfo, inputM4aPath, downloadPath string) (string, e
 	log.Printf("Converting %s - %s to MP3", track.Artist, track.Title)
 
 	baseFilename := fmt.Sprintf("%s - %s", track.Artist, track.Title)
-	mp3Filename := sanitizeFilename(baseFilename + ".mp3")
+	mp3Filename := utils.SanitizeFilename(baseFilename + ".mp3")
 	mp3FilePath := filepath.Join(downloadPath, mp3Filename)
 
 	// 1. Fetch Enhanced Metadata (Best Effort)
@@ -527,15 +527,6 @@ func getChunks(totalSize, chunkSize int64) []chunk {
 	return chunks
 }
 
-func sanitizeFilename(name string) string {
-	return strings.Map(func(r rune) rune {
-		if strings.ContainsRune(`<>:"/\|?*`, r) {
-			return -1
-		}
-		return r
-	}, name)
-}
-
 func generateM3U(playlistName string, tracks []db.SongTask, outputDir string) error {
 	filename := filepath.Join(outputDir, "playlist.m3u8")
 	f, err := os.Create(filename)
@@ -604,7 +595,7 @@ func HandleSongTask(track *db.SongTask) {
 
 	// Fetch download path setting
 	downloadPath, _ := db.GetSetting(db.DownloadPathSetting)
-	fullDownloadPath, playlistFolder, playlistName := resolveDownloadDirectory(groupTask, downloadPath)
+	fullDownloadPath, playlistFolder, playlistName := utils.ResolveDownloadDirectory(groupTask, downloadPath)
 
 	// Ensure download directory exists
 	if _, err := os.Stat(fullDownloadPath); os.IsNotExist(err) {
@@ -656,39 +647,6 @@ func HandleSongTask(track *db.SongTask) {
 	// Step 3: Finalize the task
 	relativePath := filepath.Join(playlistFolder, filepath.Base(finalPath))
 	finalizeTask(track, relativePath, playlistName, fullDownloadPath)
-}
-
-func resolveDownloadDirectory(groupTask *db.GroupTask, downloadPath string) (string, string, string) {
-	playlistName := groupTask.PlaylistName
-	if groupTask.Type == db.TaskTypeOngoingDownload {
-		if playlistName == "" {
-			// Use safe format for folder name (no colons)
-			// Format: Songs YYYY-MM-DD_HH-MM
-			playlistName = fmt.Sprintf("Songs %s", groupTask.CreatedAt.Format("2006-01-02_15-04"))
-		}
-
-		// For ongoing downloads, place them in a dedicated subfolder
-		// We sanitize the playlist name first, then join with the parent folder
-		safePlaylistName := sanitizeFilename(playlistName)
-		playlistFolder := filepath.Join("Ongoing Listening", safePlaylistName)
-		fullDownloadPath := filepath.Join(downloadPath, playlistFolder)
-
-		return fullDownloadPath, playlistFolder, playlistName
-	}
-
-	if groupTask.Type == db.TaskTypeSongMixDownload {
-		// Format: {Song Title}-{MaxTracks}
-		// If MaxTracks is 0, maybe just {Song Title}?
-		// The requirement said: "All the songs will be stored under the same folder with the song title then dash and the number of related songs"
-		folderName := fmt.Sprintf("%s mix-(%d songs)", playlistName, groupTask.MaxTracks)
-		playlistFolder := sanitizeFilename(folderName)
-		fullDownloadPath := filepath.Join(downloadPath, playlistFolder)
-		return fullDownloadPath, playlistFolder, playlistName
-	}
-
-	playlistFolder := sanitizeFilename(playlistName)
-	fullDownloadPath := filepath.Join(downloadPath, playlistFolder)
-	return fullDownloadPath, playlistFolder, playlistName
 }
 
 func finalizeTask(track *db.SongTask, relativePath, playlistName, fullDownloadPath string) {

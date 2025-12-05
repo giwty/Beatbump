@@ -2,8 +2,10 @@ package api
 
 import (
 	"beatbump-server/backend/db"
+	"beatbump-server/backend/utils"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 
 	"github.com/labstack/echo/v4"
@@ -212,4 +214,76 @@ func RetryTaskHandler(c echo.Context) error {
 		return c.String(http.StatusInternalServerError, "Failed to retry task")
 	}
 	return c.JSON(http.StatusOK, map[string]string{"status": "retrying"})
+}
+func DeleteTaskHandler(c echo.Context) error {
+	taskIDStr := c.Param("taskId")
+	taskID, err := strconv.Atoi(taskIDStr)
+	if err != nil {
+		return c.String(http.StatusBadRequest, "Invalid task ID")
+	}
+
+	// 1. Get Group Task to find the folder path
+	groupTask, err := db.GetGroupTask(taskID)
+	if err != nil {
+		return c.String(http.StatusNotFound, "Task not found")
+	}
+
+	// 2. Resolve Download Directory
+	downloadPath, _ := db.GetSetting(db.DownloadPathSetting)
+	fullDownloadPath, _, _ := utils.ResolveDownloadDirectory(groupTask, downloadPath)
+
+	// 3. Delete from DB first (to stop worker from picking it up)
+	err = db.DeleteGroupTask(taskID)
+	if err != nil {
+		return c.String(http.StatusInternalServerError, "Failed to delete task from DB")
+	}
+
+	// 4. Delete directory (best effort)
+	if fullDownloadPath != "" {
+		err = os.RemoveAll(fullDownloadPath)
+		if err != nil {
+			c.Logger().Errorf("Failed to delete directory %s: %v", fullDownloadPath, err)
+			// We don't fail the request if file deletion fails, as DB is already updated
+		}
+	}
+
+	return c.JSON(http.StatusOK, map[string]string{"status": "deleted"})
+}
+
+func DeleteTrackHandler(c echo.Context) error {
+	taskIDStr := c.Param("taskId")
+	taskID, err := strconv.Atoi(taskIDStr)
+	if err != nil {
+		return c.String(http.StatusBadRequest, "Invalid task ID")
+	}
+
+	videoID := c.Param("videoId")
+	if videoID == "" {
+		return c.String(http.StatusBadRequest, "Video ID is required")
+	}
+
+	// 1. Get Song Task to find the file path
+	songTask, err := db.GetSongTask(taskID, videoID)
+	if err != nil {
+		return c.String(http.StatusNotFound, "Track not found")
+	}
+
+	// 2. Delete from DB
+	err = db.DeleteSongTask(taskID, videoID)
+	if err != nil {
+		return c.String(http.StatusInternalServerError, "Failed to delete track from DB")
+	}
+
+	// 3. Delete file (best effort)
+	// If FilePath is set, use it.
+	if songTask.FilePath != "" {
+		downloadPath, _ := db.GetSetting(db.DownloadPathSetting)
+		fullPath := filepath.Join(downloadPath, songTask.FilePath)
+		err = os.Remove(fullPath)
+		if err != nil {
+			c.Logger().Errorf("Failed to delete file %s: %v", fullPath, err)
+		}
+	}
+
+	return c.JSON(http.StatusOK, map[string]string{"status": "deleted"})
 }

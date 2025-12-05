@@ -425,4 +425,17 @@
 			d="M2.5 0A2.5 2.5 0 0 0 0 2.5v11A2.5 2.5 0 0 0 2.5 16h11a2.5 2.5 0 0 0 2.5-2.5v-11A2.5 2.5 0 0 0 13.5 0h-11Zm4.326 10.88H10.5V12h-5V4.002h5v1.12H6.826V7.4h3.457v1.073H6.826v2.408Z"
 		></path>
 	</symbol>
+	<symbol id="trash">
+		<polyline points="3 6 5 6 21 6"></polyline>
+		<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+	</symbol>
+	<symbol id="refresh">
+		<polyline points="23 4 23 10 17 10"></polyline>
+		<polyline points="1 20 1 14 7 14"></polyline>
+		<path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+	</symbol>
+	<symbol id="play-circle">
+		<circle cx="12" cy="12" r="10"></circle>
+		<polygon points="10 8 16 12 10 16 10 8"></polygon>
+	</symbol>
 </svg>
