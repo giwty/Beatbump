@@ -43,59 +43,65 @@ Contributions are welcomed
 
 ## Running Beatbump
 
-### Run directly from source code
-- git clone https://github.com/giwty/Beatbump.git
-- docker build . -t beatbump:latest
-- docker run -p 8080:8080 beatbump:latest
-- Access http://app.localhost:8080
+The recommended way to run Beatbump is via `docker-compose`, as Beatbump depends on the `invidious-companion` service to generate valid YouTube sessions and bypass blocking.
 
-### Running via prebuilt docker image
-- docker pull ghcr.io/giwty/beatbump:latest
-- docker run -p 8080:8080 ghcr.io/giwty/beatbump:latest
-- Access http://app.localhost:8080
+In the `docker-compose.yaml` file, you can choose to use the pre built docker image of Beatbump or build it from source.
 
-You can add [-dit] after [docker run] if you want the docker container to run in the background.
+### Prerequisites
+- [Docker](https://docs.docker.com/get-docker/)
+- [Docker Compose](https://docs.docker.com/compose/install/)
+
+### Setup via Docker Compose
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/giwty/Beatbump.git
+   cd Beatbump
+   ```
+
+2. Start the services:
+   ```bash
+   docker-compose up -d
+   ```
+   This will start both the Beatbump container and the `invidious-companion` container.
+
+3. Access Beatbump at `http://localhost:8080` or `http://app.localhost:8080`.
 
 ## Configuration
-In most cases, Beatbump requires no special configuration and should just work.\
-Beat contains measures to overcome Youtube blocking attempts, and will generate a valid session (inspired by [youtube-trusted-session-generator](https://github.com/iv-org/youtube-trusted-session-generator)) that should pass Youtube checks and allow you to listen ad free.\
-This is done by simulating Youtube session via Chromium.
 
-However, If you do encounter errors, where songs do not play, please continue to read and follow one of the options below.
+To avoid the constant breakage of Beatbump due to YouTube API changes, Beatbump now uses `invidious-companion` to seamlessly generate sessions that pass YouTube's checks, allowing you to listen to music ad-free without encountering playback errors.
 
-## What to do if songs are not playing
+The provided `docker-compose.yaml` is already pre-configured to handle the connection between Beatbump and the companion service out of the box.
 
-First, ensure you are on the latest Beatbump.\
-If songs still do not play, you will need to setup an authenticated session via one of the 2 options below:
+If you choose to run Beatbump and `invidious-companion` separately, you must provide the following environment variables to the Beatbump container:
+- `COMPANION_URL`: The URL of the `invidious-companion` service (e.g., `http://companion:8282`).
+- `COMPANION_SECRET_KEY`: The secret key matching the `SERVER_SECRET_KEY` set in `invidious-companion`.
 
-### Option 1 - oauth authentication
-- Follow the instructions [here](https://developers.google.com/youtube/registering_an_application) to register application.
-  For your new credentials, select OAuth client ID and pick TVs and Limited Input devices.
-- Obtain the client id and client secret and paste in Beatbump settings
-- Click the "Start Oauth flow" and follow the steps in the new tab
-- Do not use your main Google account, but create a dedicate one for this purpose.
-- Once complete, go back to Beatbump and click on the complete button.
-- If all went well, a new Cookie will be saved with your Oauth access token.
-- Try to play some music and see if it works now!
+## Downloads (New capability)
 
-### Option 2 - cookie authentication
-To run authenticated requests, set it up by first copying your request headers from an authenticated POST request in your browser.
-To do so, follow these steps:
+Note - the download capability was developed with AI.
 
-- Open a new tab in your favorite browser
-- Open the developer tools (Ctrl-Shift-I) and select the "Network" tab
-- Go to https://music.youtube.com and ensure you are logged in.
-- Do not use your main Google account, but create a dedicate one for this purpose.
-- Find an authenticated POST request. The simplest way is to filter by ``/browse`` using the search bar of the developer tools.
-  If you don't see the request, try scrolling down a bit or clicking on the library button in the top bar.
-- Verify that the request looks like this: **Status** 200, **Name** ``browse?...``
-- Find the section called 'Request Headers'
-  Find the item named 'Cookie' and copy the value. It is VERY important that you copy the exact value. Double check that you do not include any additional spaces or characters at the start/end of the value Cookie value
-- Some browser will have an option to copy the value by right clicking and selecting "Copy Value"
-- Paste the value into Beatbump Cookie header setting.
-- Try to play some music and see if it works now!
+Beatbump now has a built in downloader that can download songs, playlists, and albums.
 
-Note :Cookies will expire after some time. This means that you will have to run this process again if Beatbump stops working.
+There are different download options for you to try - 
+
+- Download playlists - new download option in the playlists page.
+- Download single song - new download option in the songs page.
+- Download song mix - choose a "seed" song and specify how many songs you want to download in addition.
+- Ongoing listening download - Beatbump will automatically download songs as you listen to them. 
+
+Beatbump uses a local SQLite database (path defined by the `BEATBUMP_DB_PATH` environment variable) to store the download tasks. 
+Currently, the database stores:
+- **Group Tasks:** Represents high-level tasks like downloading a playlist, an album, or processing an ongoing listening session.
+- **Song Tasks:** Represents individual song downloads attached to a group task, including metadata like title, artist, album, and thumbnail.
+- **Settings:** Stores application configurations.
+
+
+**Settings:**
+downloads will be enabled once you defined the download path in the settings page.  Optionally you can enable ongoing downloads capability.
+- **Download Path:** The directory where music gets saved (mapped to `/downloads` in docker-compose).
+- **Ongoing Downloads:** Toggle to automatically save songs to your library as you listen.
+
 
 
 ## Project Inspirations

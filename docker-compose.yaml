@@ -1,15 +1,16 @@
 services:
 
   beatbump:
-    #image: ghcr.io/giwty/beatbump:latest
-    build:
-      dockerfile: Dockerfile
+    image: ghcr.io/giwty/beatbump:latest
+    # uncomment the following lines to build from source
+    #build:
+    #  dockerfile: Dockerfile
     container_name: beatbump
     ports:
       - "8080:8080"
     volumes:
-      - /downloads:/downloads
-      - /db:/db
+      - /downloads:/downloads # path on host where the downloaded songs will be stored
+      - /db:/db # path on host where the database will be stored
     environment:
       - COMPANION_SECRET_KEY=abcd123apikeykey
       - COMPANION_URL=http://companion:8282
