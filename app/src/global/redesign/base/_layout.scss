@@ -218,7 +218,7 @@ main {
 	inset: 0;
 	isolation: isolate;
 	contain: content;
-	overflow-y: hidden;
+	overflow-y: auto;
 }
 .app-content-m {
 	will-change: margin-block;
