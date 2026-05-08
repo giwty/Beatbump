@@ -181,7 +181,7 @@ html {
 	height: 100%;
 	// overflow-y: auto;
 	max-width: 100%;
-	overscroll-behavior: contain;
+	//overscroll-behavior: contain;
 }
 main {
 	margin: 0 auto;
@@ -190,7 +190,7 @@ main {
 	@include v.content-spacing($type: "padding");
 	overflow-x: hidden;
 	transform: translateZ(0px);
-	overscroll-behavior: contain;
+	//overscroll-behavior: contain;
 
 	padding-block-start: calc(var(--top-bar-height) + 2vh) !important;
 	@media screen and (min-width: 640px) {
