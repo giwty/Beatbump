@@ -1,10 +1,5 @@
 package _youtube
 
-import (
-	"encoding/json"
-	"strings"
-)
-
 type MusicShelfContinuationContent struct {
 	MusicResponsiveListItemRenderer MusicResponsiveListItemRenderer `json:"musicResponsiveListItemRenderer"`
 }
@@ -1140,7 +1135,8 @@ type ItemSectionRenderer struct {
 				} `json:"searchEndpoint"`
 			} `json:"originalQueryEndpoint"`
 			TrackingParams string `json:"trackingParams"`
-		} `json:"showingResultsForRenderer"`
+		} `json:"showingResultsForRenderer,omitempty"`
+		MusicResponsiveListItemRenderer *MusicResponsiveListItemRenderer `json:"musicResponsiveListItemRenderer,omitempty"`
 	} `json:"contents"`
 	TrackingParams string `json:"trackingParams"`
 }
@@ -1151,39 +1147,7 @@ type SectionListRendererContents struct {
 	ItemSectionRenderer    *ItemSectionRenderer    `json:"itemSectionRenderer,omitempty"`
 }
 
-func (c *SectionListRendererContents) UnmarshalJSON(data []byte) error {
 
-	if strings.Contains(string(data[0:50]), "musicCardShelfRenderer") {
-		/*musicCardShelfRenderer := map[string]MusicCardShelfRenderer{}
-		err := json.Unmarshal(data, &musicCardShelfRenderer)
-		if err != nil {
-			return err
-		}
-		c.MusicCardShelfRenderer = &(musicCardShelfRenderer["musicCardShelfRenderer"])*/
-		return nil
-	} else if strings.Contains(string(data[0:50]), "musicShelfRenderer") {
-		musicShelfRenderer := map[string]MusicShelfRenderer{}
-		err := json.Unmarshal(data, &musicShelfRenderer)
-		if err != nil {
-			return err
-		}
-		renderer := musicShelfRenderer["musicShelfRenderer"]
-		c.MusicShelfRenderer = &renderer
-		return nil
-	} else if strings.Contains(string(data[0:50]), "itemSectionRenderer") {
-		/*musicShelfRenderer := map[string]MusicShelfRenderer{}
-		err := json.Unmarshal(data, &musicShelfRenderer)
-		if err != nil {
-			return err
-		}
-		renderer := musicShelfRenderer["musicShelfRenderer"]
-		c.MusicShelfRenderer = &renderer*/
-		return nil
-	} else {
-		//return fmt.Errorf("unknown type: %v", string(data[0:50]))
-		return nil
-	}
-}
 
 type TabbedSearchResultsRenderer struct {
 	Tabs []struct {

@@ -8,6 +8,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 )
 
@@ -129,35 +130,63 @@ func parseContinuationResponse(content []_youtube.MusicShelfContinuationContent,
 
 func parseResponse(content []_youtube.SectionListRendererContents) ([]MusicShelf, error) {
 	response := make([]MusicShelf, 0, len(content))
+	var flatResultsShelf *MusicShelf
+
 	for _, shelf := range content {
-		currShelf := MusicShelf{}
-		if shelf.MusicShelfRenderer == nil {
-			continue
-		}
-
-		title := ""
-		if len(shelf.MusicShelfRenderer.Title.Runs) != 0{
-			title = shelf.MusicShelfRenderer.Title.Runs[0].Text
-		}
-		
-		currShelf.Header.Title = title
-		currShelf.Contents = make([]IListItemRenderer, 0, len(shelf.MusicShelfRenderer.Contents))
-		for _, entry := range shelf.MusicShelfRenderer.Contents {
-			item := parseMusicResponsiveListItemRenderer(entry.MusicResponsiveListItemRenderer)
-
-			entryTitle := strings.ToLower(strings.ReplaceAll(title, " ", "_"))
-			item.Type = entryTitle
-			if entryTitle == "top_result" && item.Endpoint != nil {
-				if strings.Contains(item.Endpoint.PageType, "SINGLE") ||
-					strings.Contains(item.Endpoint.PageType, "ALBUM") {
-					item.Type = "albums"
-				}
+		if shelf.MusicShelfRenderer != nil {
+			currShelf := MusicShelf{}
+			title := ""
+			if len(shelf.MusicShelfRenderer.Title.Runs) != 0 {
+				title = shelf.MusicShelfRenderer.Title.Runs[0].Text
 			}
 
-			currShelf.Contents = append(currShelf.Contents, item)
-		}
+			currShelf.Header.Title = title
+			currShelf.Contents = make([]IListItemRenderer, 0, len(shelf.MusicShelfRenderer.Contents))
+			for _, entry := range shelf.MusicShelfRenderer.Contents {
+				item := parseMusicResponsiveListItemRenderer(entry.MusicResponsiveListItemRenderer)
 
-		response = append(response, currShelf)
+				entryTitle := strings.ToLower(strings.ReplaceAll(title, " ", "_"))
+				item.Type = entryTitle
+				if entryTitle == "top_result" && item.Endpoint != nil {
+					if strings.Contains(item.Endpoint.PageType, "SINGLE") ||
+						strings.Contains(item.Endpoint.PageType, "ALBUM") {
+						item.Type = "albums"
+					}
+				}
+
+				currShelf.Contents = append(currShelf.Contents, item)
+			}
+
+			response = append(response, currShelf)
+		} else if shelf.ItemSectionRenderer != nil {
+			if flatResultsShelf == nil {
+				flatResultsShelf = &MusicShelf{}
+				flatResultsShelf.Header.Title = "Results"
+				flatResultsShelf.Contents = make([]IListItemRenderer, 0)
+			}
+			for _, entry := range shelf.ItemSectionRenderer.Contents {
+				if entry.MusicResponsiveListItemRenderer != nil {
+					item := parseMusicResponsiveListItemRenderer(*entry.MusicResponsiveListItemRenderer)
+					// Try to determine type or fallback to results
+					item.Type = "results"
+					if item.Endpoint != nil {
+						if strings.Contains(item.Endpoint.PageType, "SINGLE") || strings.Contains(item.Endpoint.PageType, "ALBUM") {
+							item.Type = "albums"
+						} else if strings.Contains(item.Endpoint.PageType, "ARTIST") {
+							item.Type = "artists"
+						} else if strings.Contains(item.Endpoint.PageType, "PLAYLIST") {
+							item.Type = "playlists"
+						}
+					}
+					flatResultsShelf.Contents = append(flatResultsShelf.Contents, item)
+				}
+			}
+		}
 	}
+
+	if flatResultsShelf != nil && len(flatResultsShelf.Contents) > 0 {
+		response = append(response, *flatResultsShelf)
+	}
+
 	return response, nil
 }

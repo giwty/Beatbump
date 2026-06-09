@@ -45,8 +45,6 @@
 		height: 1px;
 	}
 	.app-transition-wrapper {
-		transform: translateZ(0);
-		will-change: top;
 		isolation: isolate;
 		padding-bottom: 2.1rem;
 	}
