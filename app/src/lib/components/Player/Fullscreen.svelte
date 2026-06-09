@@ -1024,29 +1024,43 @@
 	}
 
 	.backdrop {
-		overscroll-behavior: contain;
-		grid-area: m;
-		position: fixed;
-		isolation: isolate;
-		display: grid;
-		pointer-events: all;
-		background-color: #0000;
-		inset: 0;
-		z-index: 151;
-		margin-top: var(--top-bar-height);
-		height: calc(100% - calc(var(--top-bar-height) + var(--player-bar-height)));
-		max-height: 100vh;
-		contain: strict;
-		touch-action: pan-y;
-		will-change: transform, opacity;
-		opacity: 0;
-		transition: 800ms opacity cubic-bezier(0.25, 0.46, 0.45, 0.94) 800ms;
-		&.open {
-			transition: 400ms opacity cubic-bezier(0.25, 0.46, 0.45, 0.94) 0ms;
+    /* ---------------------------------------------------
+       1. LAYOUT & POSITIONING (Keep these exactly as they were)
+    --------------------------------------------------- */
+    grid-area: m;
+    position: fixed;
+    isolation: isolate;
+    display: grid;
+    background-color: #0000;
+    inset: 0;
+    z-index: 151;
+    margin-top: var(--top-bar-height);
+    height: calc(100% - calc(var(--top-bar-height) + var(--player-bar-height)));
+    max-height: 100vh;
+    contain: strict;
+    touch-action: pan-y;
+    will-change: transform, opacity;
 
-			opacity: 1;
-		}
-	}
+    /* ---------------------------------------------------
+       2. CLOSED STATE (Default)
+    --------------------------------------------------- */
+    pointer-events: none !important; 
+    visibility: hidden !important; /* Completely hides it from the touch tree */
+    opacity: 0;
+    overscroll-behavior: auto !important; /* CRITICAL: Lets scroll pass through to the list */
+    transition: opacity 800ms cubic-bezier(0.25, 0.46, 0.45, 0.94) 800ms, visibility 800ms 800ms;
+
+    /* ---------------------------------------------------
+       3. OPEN STATE (When player is expanded)
+    --------------------------------------------------- */
+    &.open {
+        pointer-events: auto !important;
+        visibility: visible !important;
+        opacity: 1;
+        overscroll-behavior: contain !important; /* CRITICAL: Locks background scroll when player is open */
+        transition: opacity 400ms cubic-bezier(0.25, 0.46, 0.45, 0.94) 0ms;
+    }
+}
 
 	.album-art {
 		overscroll-behavior: contain;
